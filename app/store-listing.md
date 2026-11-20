@@ -21,7 +21,7 @@ PLAY YOUR WAY
 - Ranked: 1v1 for rank points. Win and climb from Bronze all the way to Immortal (eleven ranks)
 - Friends: challenge a friend to a 1v1, a 3-point contest, free throws or a Pro Match, make a room, share the code and play together, or run a friend cup
 - World Cup: play for the trophy online or against the bots. Lose once and you are out
-- Club Career: play for one of a hundred clubs from around the world (made-up names and badges), sign a new contract every three days and get paid coins for every point and assist, then win the Champions Cup
+- Club Career: play for one of 30 pro teams, one in every big basketball city (made-up names and badges), sign a new contract every three days and get paid coins for every point and assist, then win the Champions Cup
 - The 3-Point Contest and Free Throws: five shots each, let go at the top of the meter, against the bots or a real player online
 - Skill Challenges and Training for when you want to practise
 

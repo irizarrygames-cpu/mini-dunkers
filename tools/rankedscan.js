@@ -97,11 +97,12 @@ async function endWith(room, blue, red) {
   // give them whatever their first challenge asks for
   const first = seat.chal[0];
   const stats = seat.player.stats;
-  if (first.id === 'score2') stats.goals = 2;
-  else if (first.id === 'hattrick') stats.goals = 3;
-  else if (first.id === 'tackle3') stats.tackles = 3;
+  // (basketball's rules, js/meta.js: 10 and 20 points, 2 steals, 5 skills, a blocked shot)
+  if (first.id === 'score2') stats.goals = 10;
+  else if (first.id === 'hattrick') stats.goals = 20;
+  else if (first.id === 'tackle3') stats.steals = 2;
   else if (first.id === 'skill5') stats.skills = 5;
-  else if (first.id === 'dodge2') stats.dodges = 2;
+  else if (first.id === 'dodge2') stats.blocks = 1;
   n = socks.rka.got.length;
   await sleep(250);
   const after = socks.rka.since(n, 's').pop();

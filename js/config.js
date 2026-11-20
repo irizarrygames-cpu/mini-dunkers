@@ -436,7 +436,7 @@ const ACCESSORIES = [
   { id: 'warpaint',    name: tl('War Paint'),       slot: 'face', price: 10000 },
   { id: 'scarf',       name: tl('Scarf'),           slot: 'neck', price: 11000 },
   { id: 'monocle',     name: tl('Monocle'),         slot: 'face', price: 12000 },
-  { id: 'armband',     name: tl('Captain Armband'), slot: 'arm',  price: 13000 },
+  { id: 'armband',     name: tl('Shooting Sleeve'), slot: 'arm',  price: 13000 },
   { id: 'starshades',  name: tl('Star Shades'),     slot: 'face', price: 14000 },
   { id: 'flowercrown', name: tl('Flower Crown'),    slot: 'head', price: 15000 },
   { id: 'heromask',    name: tl('Hero Mask'),       slot: 'face', price: 16000 },

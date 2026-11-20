@@ -976,7 +976,7 @@ Object.assign(UI, {
   // ---- customize: your player on the left, everything you can put on them on the right ----
   CUST_TABS: [['character', tl('PLAYER')], ['skill', tl('SKILL MOVE')], ['ball', tl('BALL')], ['accessory', tl('ACCESSORIES')], ['celebration', tl('CELEBRATION')], ['trail', tl('POWER TRAIL')], ['emote', tl('EMOTES')]],
   CUST_NOTES: {
-    character: tl('Your own player: the haircut, the colours and the build. The kit is your team\'s. To make them better, spend coins on STATS.'),
+    character: tl('Your own player: the haircut, the colours and the build. The uniform is your team\'s. To make them better, spend coins on STATS.'),
     skill: tl('What your SKILL button does. Carry one and it is that move every time, aimed wherever you are pointing.'),
     ball: tl('The match ball in every game you play.'),
     accessory: tl('Wear as many as you like, all at once: tap one to put it on, tap it again to take it off. Online, everyone sees them.'),
@@ -1471,7 +1471,7 @@ Object.assign(UI, {
       <p class="note">${tl('{0} countries, one ladder. Every online win moves your country up a place, every loss moves it down one.', [r.table.length])} ${pos ? tl('You are playing for {0} — {1} in the table.', [`<b>${Clubs.mine().name}</b>`, ordinal(pos)]) : tl('You are playing for {0}.', [`<b>${Clubs.mine().name}</b>`])}</p>
       <div class="league-wrap">
         <div class="lg-table-wrap"><table class="lg-table">
-          <thead><tr><th>#</th><th class="lg-club">${tl('COUNTRY')}</th><th>P</th><th>W</th><th>D</th><th>L</th><th>${tl('GD')}</th><th title="${tl('Last move')}">±</th><th title="${tl('Players')}">👥</th></tr></thead>
+          <thead><tr><th>#</th><th class="lg-club">${tl('COUNTRY')}</th><th>P</th><th>W</th><th>D</th><th>L</th><th>+/-</th><th title="${tl('Last move')}">±</th><th title="${tl('Players')}">👥</th></tr></thead>
           <tbody>${r.table.map((row, i) => { const c = Clubs.get(row.club); return `<tr class="${row.club === mine ? 'mine' : ''} ${i < 4 ? 'top' : ''}"><td>${i + 1}</td><td class="lg-club"><span class="lg-name"><canvas width="42" height="28" data-club="${c.id}"></canvas><b>${c.name}</b></span></td><td>${row.p}</td><td>${row.w}</td><td>${row.d}</td><td>${row.l}</td><td>${row.gd > 0 ? '+' : ''}${row.gd}</td><td class="mv ${row.move > 0 ? 'up' : row.move < 0 ? 'down' : ''}">${row.move > 0 ? '▲' : row.move < 0 ? '▼' : '–'}</td><td>${row.players}</td></tr>`; }).join('')}</tbody>
         </table></div>
         <div class="lg-side">

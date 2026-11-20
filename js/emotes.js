@@ -285,6 +285,22 @@ function emBall(g, x, y, r, rot = 0, col = '#ff8a1f', patch = '#2b2f4a') {
   g.restore();
   emLine(g, Math.max(1.6, r * 0.24)); g.beginPath(); g.arc(x, y, r, 0, EM_TAU); g.stroke();
 }
+// a basketball hoop from the front: the backboard and its square, the net, the orange rim on top.
+// swish (0..1) flicks the net as a ball drops through.
+function emHoop(g, x, y, s = 1, swish = 0) {
+  g.save(); g.translate(x, y); g.scale(s, s);
+  emBox(g, -22, -30, 44, 30, 3, '#ffffff', 3);
+  g.lineWidth = 2.6; g.strokeStyle = EM_RED; g.strokeRect(-9, -19, 18, 13);
+  const sw = Math.sin(swish * Math.PI) * 3;
+  g.lineCap = 'round';
+  g.beginPath();
+  for (const k of [-1, -0.5, 0, 0.5, 1]) { g.moveTo(k * 14, 2); g.lineTo(k * (9 + sw), 22 + Math.abs(sw)); }
+  g.moveTo(-12.5, 9); g.lineTo(12.5, 9); g.moveTo(-10.5, 16); g.lineTo(10.5, 16);
+  emLine(g, 4); g.stroke(); g.strokeStyle = '#ffffff'; g.lineWidth = 1.8; g.stroke();
+  g.beginPath(); g.ellipse(0, 2, 16, 4.2, 0, 0, EM_TAU);
+  emLine(g, 6.4); g.stroke(); g.strokeStyle = EM_ORANGE; g.lineWidth = 3.2; g.stroke();
+  g.restore();
+}
 function emText(g, s, x, y, size, col, rot = 0) {
   g.save(); g.translate(x, y); g.rotate(rot);
   g.font = `400 ${size}px "Lilita One", system-ui, sans-serif`;
@@ -945,10 +961,11 @@ const EM_PROPS = {
   },
   boot: {
     f: (g, t) => {
-      g.save(); g.translate(26, 14); g.rotate(-0.3 + Math.sin(t * 3) * 0.08);
-      g.beginPath(); g.moveTo(-10, -12); g.lineTo(2, -12); g.lineTo(3, -2); g.quadraticCurveTo(18, 0, 16, 8); g.lineTo(-10, 8); g.closePath(); emFS(g, EM_BLUE, 2.8);
-      g.fillStyle = '#ffffff'; g.beginPath(); g.moveTo(-6, 0); g.lineTo(8, -1); g.lineTo(10, 3); g.lineTo(-6, 4); g.closePath(); g.fill();
-      for (const x of [-6, 2, 10]) emBox(g, x - 1.8, 8, 3.6, 4, 1, '#c9d2e4', 1.6);
+      g.save(); g.translate(26, 12); g.rotate(-0.3 + Math.sin(t * 3) * 0.08);
+      g.beginPath(); g.moveTo(-10, -17); g.lineTo(3, -17); g.lineTo(4, -3); g.quadraticCurveTo(18, -1, 17, 7); g.lineTo(-10, 7); g.closePath(); emFS(g, EM_BLUE, 2.8);
+      g.fillStyle = '#ffffff'; g.beginPath(); g.moveTo(-6, -1); g.lineTo(8, -2); g.lineTo(10, 2); g.lineTo(-6, 3); g.closePath(); g.fill();
+      emLine(g, 1.8); g.beginPath(); g.moveTo(-4, -12); g.lineTo(2, -12); g.moveTo(-4, -8); g.lineTo(2, -8); g.stroke();
+      emBox(g, -12, 6, 31, 5.5, 2.5, '#ffffff', 2.4);
       g.restore();
     },
   },
@@ -1020,19 +1037,16 @@ const EM_PROPS = {
     },
   },
   net: {
-    wb: (g) => {
-      emLine(g, 1.2); g.strokeStyle = '#9aa3c7';
-      g.beginPath(); for (let x = -40; x <= 40; x += 8) { g.moveTo(x, -36); g.lineTo(x * 0.85, 44); } for (let y = -36; y <= 44; y += 8) { g.moveTo(-40, y); g.lineTo(40, y); } g.stroke();
-      emLine(g, 6); g.beginPath(); g.moveTo(-44, 46); g.lineTo(-44, -40); g.lineTo(44, -40); g.lineTo(44, 46); g.stroke();
-      g.strokeStyle = '#ffffff'; g.lineWidth = 3; g.beginPath(); g.moveTo(-44, 46); g.lineTo(-44, -40); g.lineTo(44, -40); g.lineTo(44, 46); g.stroke();
+    wb: (g, t) => {
+      const u = emCycle(t, 1.4);
+      emHoop(g, -28, -21, 0.85, u < 0.5 ? u / 0.5 : 0);
     },
   },
   post: {
     wb: (g, t) => {
       const u = emCycle(t, 1.6), hit = u < 0.12 ? Math.sin((u / 0.12) * Math.PI * 4) * 2 : 0;
-      emLine(g, 8); g.beginPath(); g.moveTo(-40 + hit, 50); g.lineTo(-40 + hit, -50); g.stroke();
-      g.strokeStyle = '#ffffff'; g.lineWidth = 4.5; g.beginPath(); g.moveTo(-40 + hit, 50); g.lineTo(-40 + hit, -50); g.stroke();
-      if (u < 0.2) { emLine(g, 2.4); g.beginPath(); for (const a of [-0.6, 0, 0.6]) { g.moveTo(-34 + Math.cos(a) * 4, Math.sin(a) * 6); g.lineTo(-34 + Math.cos(a) * 12, Math.sin(a) * 14); } g.stroke(); }
+      emHoop(g, -30 + hit, -21, 0.85);
+      if (u < 0.2) { emLine(g, 2.4); g.beginPath(); for (const a of [-0.6, 0, 0.6]) { g.moveTo(-14 + Math.cos(a) * 4, -19 + Math.sin(a) * 6); g.lineTo(-14 + Math.cos(a) * 12, -19 + Math.sin(a) * 14); } g.stroke(); }
     },
   },
   chef: {
@@ -1051,15 +1065,20 @@ const EM_PROPS = {
   },
   topcorner: {
     wb: (g, t) => {
-      emLine(g, 1.2); g.strokeStyle = '#9aa3c7';
-      g.beginPath(); for (let x = -14; x <= 44; x += 7) { g.moveTo(x, -42); g.lineTo(x, 46); } for (let y = -42; y <= 46; y += 7) { g.moveTo(-14, y); g.lineTo(44, y); } g.stroke();
-      emLine(g, 6); g.beginPath(); g.moveTo(-50, -44); g.lineTo(42, -44); g.lineTo(42, 50); g.stroke();
-      g.strokeStyle = '#ffffff'; g.lineWidth = 3; g.beginPath(); g.moveTo(-50, -44); g.lineTo(42, -44); g.lineTo(42, 50); g.stroke();
+      const u = emCycle(t, 1.6);
+      emHoop(g, 28, -21, 0.85, u > 0.55 ? (u - 0.55) / 0.45 : 0);
     },
     wf: (g, t) => {
       const u = emCycle(t, 1.6);
-      if (u < 0.55) { const k = u / 0.55; emBall(g, -46 + k * 76, 40 - k * 74, 6 + k * 1.5, k * 12); }
-      else { const k = (u - 0.55) / 0.45; emBall(g, 30, -34 + k * 2, 7.5, 0); if (k < 0.35) { emLine(g, 2.2); g.beginPath(); for (let i = 0; i < 5; i++) { const a = -Math.PI + (i * Math.PI) / 4; g.moveTo(30 + Math.cos(a) * 11, -34 + Math.sin(a) * 11); g.lineTo(30 + Math.cos(a) * 17, -34 + Math.sin(a) * 17); } g.stroke(); } }
+      if (u < 0.55) { const k = u / 0.55; emBall(g, -46 + k * 74, 40 - k * 65 - Math.sin(k * Math.PI) * 30, 6 + k * 1.2, k * 12); }
+      else {
+        const k = (u - 0.55) / 0.45;
+        if (k < 0.4) {
+          emLine(g, 2.2); g.beginPath();
+          for (let i = 0; i < 5; i++) { const a = -Math.PI + (i * Math.PI) / 4; g.moveTo(28 + Math.cos(a) * 18, -17 + Math.sin(a) * 10); g.lineTo(28 + Math.cos(a) * 24, -17 + Math.sin(a) * 15); }
+          g.stroke();
+        }
+      }
     },
   },
   rainbowball: {
@@ -1135,6 +1154,7 @@ const EM_PROPS = {
       g.save(); g.translate(26, -18 - emBounce(t, 1) * 4); g.rotate(-0.35);
       g.beginPath(); g.moveTo(-10, -12); g.lineTo(2, -12); g.lineTo(3, -2); g.quadraticCurveTo(18, 0, 16, 8); g.lineTo(-10, 8); g.closePath(); emFS(g, EM_GOLD, 2.8);
       g.fillStyle = EM_GOLD2; g.beginPath(); g.moveTo(-6, -8); g.lineTo(0, -8); g.lineTo(0, 2); g.lineTo(-6, 2); g.closePath(); g.fill();
+      emBox(g, -12, 6, 30, 5, 2.4, '#ffffff', 2.4);
       emSpark(g, 10, -10, 4 + Math.sin(t * 7) * 2, '#ffffff', 1.4);
       g.restore();
       emHand(g, 26, -2 - emBounce(t, 1) * 4, 'fist', EM_HANDS[e.who], 0, 1);

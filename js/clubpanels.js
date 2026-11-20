@@ -110,7 +110,7 @@ Object.assign(UI, {
       <small class="cc-sig-kick">${tl('SIGNED!')}</small>
       <canvas width="180" height="180"></canvas>
       <strong>${tl('WELCOME TO {0}!', [I18N.upper(club.name)])}</strong>
-      <p>${tl('You wear their kit and play on their court in every mode, and the World Cup is the Champions Cup now.')}</p>
+      <p>${tl('You wear their uniform and play on their court in every mode, and the World Cup is the Champions Cup now.')}</p>
       <div class="cc-pay big"><span><b>+${s.goal}</b><small>${tl('PER POINT')}</small></span><span><b>+${s.assist}</b><small>${tl('PER ASSIST')}</small></span></div>
       <div class="gate-btns"><button class="big-btn green" data-go>${tl("LET'S GO")}</button></div>
     </div></div>`;

@@ -153,13 +153,18 @@ const Sprites = {
       this.boot(ctx, fx, fy, premiumBoot && !p.isKeeper ? premiumBoot : kit.shoes, i === 1 && kick > 0.3);
     }
 
-    // ---- shorts ----
+    // ---- shorts: long, loose basketball shorts down over the knees ----
+    // (the trim colour runs round the waist and down the side, like the jersey's)
+    const trim = kit.sleeves || (kit.accent === OUTLINE ? '#ffffff' : kit.accent);
     ctx.save(); if (buff) ctx.scale(1 + 0.17 * buff, 1);
-    this.rr(ctx, -11.5, -28, 23, 15, 4.5); this.blob(ctx, kit.shorts);
-    ctx.fillStyle = shadeHex(kit.shorts, kit.shorts === '#ffffff' ? -0.12 : -0.3);
-    ctx.fillRect(-10.2, -16.5, 20.4, 2.6);
-    ctx.fillStyle = kit.accent === OUTLINE ? '#3a3f66' : kit.accent;
-    ctx.fillRect(8.2, -26.5, 2.2, 11.5);
+    this.shortsPath(ctx); this.blob(ctx, kit.shorts);
+    ctx.save(); this.shortsPath(ctx); ctx.clip();
+    ctx.fillStyle = trim; ctx.fillRect(-14, -29, 28, 2.8);
+    ctx.fillStyle = shadeHex(kit.shorts, colorLum(kit.shorts) > 0.72 ? -0.12 : -0.3);
+    ctx.fillRect(-14, -15.2, 28, 3);
+    ctx.fillStyle = trim; ctx.fillRect(9.2, -26.5, 2.6, 14.5);
+    ctx.restore();
+    this.shortsPath(ctx); ctx.lineWidth = 2.4; ctx.strokeStyle = OUTLINE; ctx.stroke();
     ctx.restore();
 
     if (upperLean) { ctx.translate(0, -22); ctx.rotate(upperLean); ctx.translate(0, 22); }
@@ -218,53 +223,58 @@ const Sprites = {
       ctx.beginPath(); ctx.arc(side * shX, shY + 1, 5.6 + 1.8 * buff, 0, Math.PI * 2); this.blob(ctx, look.skin);
       ctx.fillStyle = kit.jersey; ctx.fillRect(side * shX - 2.6 - side * 2, shY - 4.6, 5.2, 4.2);
       if (has('armband') && side > 0 && !p.isKeeper) {
-        const f = Math.min(0.62, 7 / armLen), ax = lerp(side * shX, hx, f), ay = lerp(shY, hy, f);
-        ctx.beginPath(); ctx.arc(ax, ay, 4.4, 0, Math.PI * 2); this.blob(ctx, '#ffe14d');
-        ctx.fillStyle = OUTLINE; ctx.font = '900 6px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('C', ax, ay + 0.4);
+        // a shooting sleeve (the id is from the captain's armband it replaced): a dark compression
+        // sleeve from just under the shoulder to the wrist, a band of the team's trim at the top
+        const f0 = Math.min(0.4, 4.5 / armLen), f1 = Math.max(f0 + 0.15, (armLen - 4.6) / armLen);
+        const x0 = lerp(side * shX, hx, f0), y0 = lerp(shY, hy, f0), x1 = lerp(side * shX, hx, f1), y1 = lerp(shY, hy, f1);
+        const fb = Math.min(f1, f0 + 2.6 / armLen), xb = lerp(side * shX, hx, fb), yb = lerp(shY, hy, fb);
+        const w = 5.6 + 3 * buff;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = OUTLINE; ctx.lineWidth = w + 2.4; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+        ctx.strokeStyle = '#2a2d45'; ctx.lineWidth = w; ctx.stroke();
+        ctx.lineCap = 'butt'; ctx.strokeStyle = trim; ctx.lineWidth = w - 0.6;
+        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(xb, yb); ctx.stroke();
       }
     };
     arm(-1, -armSwing);
 
-    // ---- torso: flat cel-shaded jersey ----
+    // ---- torso: a flat cel-shaded basketball jersey (a tank top: straps, a scoop neck, open arms) ----
     ctx.save(); if (buff) ctx.scale(1 + 0.3 * buff, 1);
-    this.rr(ctx, -12, -46, 24, 22, 8);
+    // skin shows through the neck
+    ctx.fillStyle = look.skin; ctx.fillRect(-5, -47, 12, 6);
+    this.tankPath(ctx);
     ctx.fillStyle = kit.jersey; ctx.fill();
-    if (kit.stripes) { ctx.fillStyle = kit.stripes; ctx.fillRect(-8.4, -44.6, 3.8, 19.4); ctx.fillRect(-1.9, -45.4, 3.8, 21); ctx.fillRect(4.6, -44.6, 3.8, 19.4); }
-    if (kit.center) { ctx.fillStyle = '#ffffff'; ctx.fillRect(-4.8, -45.4, 9.6, 21); ctx.fillStyle = kit.center; ctx.fillRect(-3, -45.4, 6, 21); }
-    if (kit.checks) { ctx.fillStyle = kit.checks; for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) if ((r + c) % 2 === 0) ctx.fillRect(-9 + c * 4.5, -44 + r * 4.5, 4.5, 4.5); }
-    if (kit.hoops || kit.halves || kit.diag || kit.band || kit.sash) {
-      // club shirts: hoops across, the shirt split down the middle, a diagonal half, one band across
-      // the chest, or a sash from the shoulder (build 116)
-      ctx.save(); this.rr(ctx, -12, -46, 24, 22, 8); ctx.clip();
-      if (kit.hoops) { ctx.fillStyle = kit.hoops; ctx.fillRect(-13, -42.5, 26, 4.2); ctx.fillRect(-13, -35, 26, 4.2); ctx.fillRect(-13, -27.5, 26, 4); }
-      if (kit.halves) { ctx.fillStyle = kit.halves; ctx.fillRect(0, -47, 13, 24); }
-      if (kit.diag) { ctx.fillStyle = kit.diag; ctx.beginPath(); ctx.moveTo(-13, -47); ctx.lineTo(13, -47); ctx.lineTo(-13, -23); ctx.closePath(); ctx.fill(); }
-      if (kit.band) { ctx.fillStyle = kit.band; ctx.fillRect(-13, -39.5, 26, 6.5); }
-      if (kit.sash) { ctx.fillStyle = kit.sash; ctx.beginPath(); ctx.moveTo(-13, -47); ctx.lineTo(-5, -47); ctx.lineTo(13, -29); ctx.lineTo(13, -21); ctx.closePath(); ctx.fill(); }
-      ctx.restore();
-    }
+    ctx.save(); this.tankPath(ctx); ctx.clip();
+    if (kit.stripes) { ctx.fillStyle = kit.stripes; ctx.fillRect(-8.4, -47, 3.8, 24); ctx.fillRect(-1.9, -47, 3.8, 24); ctx.fillRect(4.6, -47, 3.8, 24); }
+    if (kit.center) { ctx.fillStyle = '#ffffff'; ctx.fillRect(-4.8, -47, 9.6, 24); ctx.fillStyle = kit.center; ctx.fillRect(-3, -47, 6, 24); }
+    if (kit.checks) { ctx.fillStyle = kit.checks; for (let r = 0; r < 5; r++) for (let c = 0; c < 6; c++) if ((r + c) % 2 === 0) ctx.fillRect(-13.5 + c * 4.5, -47 + r * 4.5, 4.5, 4.5); }
+    // club shirts: hoops across, the shirt split down the middle, a diagonal half, one band across
+    // the chest, or a sash from the shoulder (build 116)
+    if (kit.hoops) { ctx.fillStyle = kit.hoops; ctx.fillRect(-13, -42.5, 26, 4.2); ctx.fillRect(-13, -35, 26, 4.2); ctx.fillRect(-13, -27.5, 26, 4); }
+    if (kit.halves) { ctx.fillStyle = kit.halves; ctx.fillRect(0, -47, 13, 24); }
+    if (kit.diag) { ctx.fillStyle = kit.diag; ctx.beginPath(); ctx.moveTo(-13, -47); ctx.lineTo(13, -47); ctx.lineTo(-13, -23); ctx.closePath(); ctx.fill(); }
+    if (kit.band) { ctx.fillStyle = kit.band; ctx.fillRect(-13, -39.5, 26, 6.5); }
+    if (kit.sash) { ctx.fillStyle = kit.sash; ctx.beginPath(); ctx.moveTo(-13, -47); ctx.lineTo(-5, -47); ctx.lineTo(13, -29); ctx.lineTo(13, -21); ctx.closePath(); ctx.fill(); }
     ctx.fillStyle = kit.stripes || kit.center || kit.checks || kit.hoops || kit.halves || kit.diag || kit.band || kit.sash ? 'rgba(0, 0, 0, 0.16)' : kit.shade;
-    this.rr(ctx, -11, -31, 22, 6.5, 3); ctx.fill();   // lower shadow band
-    ctx.fillRect(-10.5, -42, 4, 13);                   // back-side panel
-    ctx.fillStyle = kit.accent === OUTLINE ? '#ffffff' : kit.accent;
-    ctx.fillRect(8.6, -42, 2.4, 13);                   // side stripe
+    ctx.fillRect(-13, -30.5, 26, 7);                   // lower shadow band
+    ctx.fillRect(-13, -38, 3.6, 9);                    // back-side panel
+    ctx.fillStyle = trim;
+    ctx.fillRect(9.4, -36, 3.2, 12);                   // side panel
     ctx.fillStyle = kit.hi || (kit.hi = shadeHex(kit.jersey, 0.25));
-    ctx.fillRect(-2, -44.5, 9, 2.2);                   // shoulder highlight
-    this.rr(ctx, -12, -46, 24, 22, 8);
-    ctx.lineWidth = 2.6; ctx.strokeStyle = OUTLINE; ctx.stroke();
-    if (!back) {
-      ctx.fillStyle = kit.accent === OUTLINE ? '#ffffff' : kit.accent;
-      ctx.beginPath(); ctx.moveTo(-4.5, -45.6); ctx.lineTo(1, -40); ctx.lineTo(6.5, -45.6); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = look.skin;
-      ctx.beginPath(); ctx.moveTo(-2.6, -45.6); ctx.lineTo(1, -42); ctx.lineTo(4.6, -45.6); ctx.closePath(); ctx.fill();
-    }
+    ctx.fillRect(-8, -45.5, 2.6, 4);                   // strap highlight
+    // the trim round the neck and the armholes
+    ctx.strokeStyle = trim; ctx.lineWidth = 3.4;
+    this.tankTrim(ctx); ctx.stroke();
     ctx.restore();
-    // number
+    this.tankPath(ctx);
+    ctx.lineWidth = 2.6; ctx.strokeStyle = OUTLINE; ctx.stroke();
+    ctx.restore();
+    // number: big in the middle of the chest, bigger still across the back
     ctx.save();
     ctx.scale(flip / squash, 1);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = `900 ${back ? 15 : 9}px system-ui, sans-serif`;
-    const nx = back ? 0 : -3.5 * flip, ny = back ? -35 : -35.5;
+    ctx.font = `900 ${back ? 15 : 11}px system-ui, sans-serif`;
+    const nx = back ? 0 : 0.6 * flip, ny = back ? -35 : -32.5;
     ctx.lineWidth = back ? 3.2 : 2.4; ctx.strokeStyle = OUTLINE;
     ctx.strokeText(String(p.number), nx, ny);
     ctx.fillStyle = '#ffffff';
@@ -1160,17 +1170,54 @@ const Sprites = {
     ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
     ctx.strokeStyle = skin; ctx.lineWidth = 6.6 + 2.6 * buff;
     ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-    const mx = lerp(x1, x2, 0.45), my = lerp(y1, y2, 0.45);
+    // basketball socks: short ones, just over the top of the shoe
+    const mx = lerp(x1, x2, 0.7), my = lerp(y1, y2, 0.7);
     ctx.strokeStyle = sock; ctx.lineWidth = 6.8 + 2.6 * buff; ctx.lineCap = 'butt';
     ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(x2, y2); ctx.stroke();
     ctx.lineCap = 'round';
   },
 
+  // a high-top basketball shoe: the collar up round the ankle, the shoe, a white sole under it
   boot(ctx, x, y, color, lifted) {
-    ctx.beginPath(); ctx.ellipse(x + 3, y + 0.5, 7.2, 4.2, lifted ? -0.35 : 0, 0, Math.PI * 2);
-    this.blob(ctx, color);
-    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.6;
-    ctx.beginPath(); ctx.moveTo(x + 0.5, y - 0.5); ctx.lineTo(x + 6, y - 1.8); ctx.stroke();
+    ctx.save(); ctx.translate(x, y); if (lifted) ctx.rotate(-0.35);
+    this.rr(ctx, -3.8, -5.2, 7.4, 5.8, 2.4); this.blob(ctx, color);
+    ctx.beginPath(); ctx.ellipse(3, -0.6, 7.4, 4.1, 0, 0, Math.PI * 2); this.blob(ctx, color);
+    this.rr(ctx, -4.6, 1.4, 15.4, 2.9, 1.4);
+    ctx.fillStyle = '#f4f5f7'; ctx.fill(); ctx.lineWidth = 1.8; ctx.strokeStyle = OUTLINE; ctx.stroke();
+    ctx.strokeStyle = colorLum(color) > 0.7 ? '#9aa3b8' : '#ffffff'; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(0.4, -2.2); ctx.lineTo(5.6, -3.4); ctx.moveTo(-1.6, -3.8); ctx.lineTo(1.8, -3.8); ctx.stroke();
+    ctx.restore();
+  },
+
+  // the jersey: straps over the shoulders, a scoop at the neck, cut away under the arms
+  tankPath(ctx) {
+    ctx.beginPath();
+    ctx.moveTo(-8.6, -46.5);
+    ctx.lineTo(-4, -46.5);
+    ctx.quadraticCurveTo(1, -38.5, 6, -46.5);
+    ctx.lineTo(10.6, -46.5);
+    ctx.quadraticCurveTo(10.4, -38.6, 12.6, -35.8);
+    ctx.lineTo(12.6, -27.4);
+    ctx.quadraticCurveTo(12.6, -24, 9.2, -24);
+    ctx.lineTo(-9.2, -24);
+    ctx.quadraticCurveTo(-12.6, -24, -12.6, -27.4);
+    ctx.lineTo(-12.6, -35.8);
+    ctx.quadraticCurveTo(-10.6, -38.6, -8.6, -46.5);
+    ctx.closePath();
+  },
+  // the trim along the neck and the armholes (stroked inside tankPath's clip)
+  tankTrim(ctx) {
+    ctx.beginPath();
+    ctx.moveTo(-4, -46.5); ctx.quadraticCurveTo(1, -38.5, 6, -46.5);
+    ctx.moveTo(10.6, -46.5); ctx.quadraticCurveTo(10.4, -38.6, 12.6, -35.8);
+    ctx.moveTo(-12.6, -35.8); ctx.quadraticCurveTo(-10.6, -38.6, -8.6, -46.5);
+  },
+  // long, loose shorts with a little split between the legs
+  shortsPath(ctx) {
+    ctx.beginPath();
+    ctx.moveTo(-11.6, -28.6); ctx.lineTo(11.6, -28.6);
+    ctx.lineTo(13, -12.4); ctx.lineTo(1.7, -12.4); ctx.lineTo(0.5, -15.6); ctx.lineTo(-0.7, -12.4); ctx.lineTo(-12, -12.4);
+    ctx.closePath();
   },
 
   head(ctx, look, back, t, p) {
