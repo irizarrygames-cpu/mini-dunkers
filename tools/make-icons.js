@@ -3,7 +3,7 @@
 // The game ships no image files — everything is drawn from shapes at runtime. Icons are
 // the one thing a phone insists on having as real files, so they are drawn here in the
 // game's flat vocabulary (solid fills, thick ink outlines, hard shadows, no gradients):
-// a flaming ball rocketing out of an arcade sunburst. PNGs are written with Node's own
+// a flaming basketball rocketing out of an arcade sunburst. PNGs are written with Node's own
 // zlib (no image library). There is no SVG icon: its strokes never matched the PNGs, and every
 // device should show exactly the same pixels.
 
@@ -65,7 +65,7 @@ function writePNG(file, size, rgba) {
 const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 const C = {
   ray1: '#2f7bff', ray2: '#1f5fe0', ink: '#16171d', shadow: '#0f2f7a',
-  white: '#ffffff', yellow: '#ffe14d', orange: '#ff7a1a', red: '#ff3f3f',
+  white: '#ffffff', yellow: '#ffe14d', orange: '#ff7a1a', red: '#ff3f3f', ball: '#e8651c',
 };
 const RGB = Object.fromEntries(Object.entries(C).map(([k, v]) => [k, hex(v)]));
 
@@ -157,8 +157,12 @@ function shade(x, y) {
   const d = Math.hypot(x - BALL.x, y - BALL.y);
   if (d <= BALL.r + INK) col = RGB.ink;
   if (d <= BALL.r) {
-    col = RGB.white;
-    for (const p of PATCHES) if (inPoly(x, y, p)) col = RGB.ink;
+    // a basketball: orange, its seams in ink (across, down, and the two curved ones), turned a little
+    col = RGB.ball;
+    const a = 0.35, ca = Math.cos(a), sa = Math.sin(a), lx = (x - BALL.x) * ca + (y - BALL.y) * sa, ly = -(x - BALL.x) * sa + (y - BALL.y) * ca;
+    const w = INK * 0.55, R = BALL.r;
+    if (Math.abs(lx) < w || Math.abs(ly) < w) col = RGB.ink;
+    if (Math.abs(Math.hypot(lx - R * 1.2, ly) - R * 0.9) < w || Math.abs(Math.hypot(lx + R * 1.2, ly) - R * 0.9) < w) col = RGB.ink;
   }
   return col;
 }

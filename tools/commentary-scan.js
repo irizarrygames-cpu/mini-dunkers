@@ -86,31 +86,32 @@ const match = () => ({ ball: { owner: a, shot: null }, score: { blue: 0, red: 0 
   const turnover = await settled();
   check('losing it is called a turnover', C.banks.turnover.includes(turnover), turnover);
 
-  console.log('shots, saves and goals');
+  console.log('shots, blocks and baskets');
   openGate(); m.ball.owner = null; m.ball.shot = { power: true }; C.update(m, 0.7);
   const powerCall = await settled();
   check('a power shot gets a big call', C.banks.power.includes(powerCall), powerCall);
-  openGate(); m.ball.shot = null; m.stats.red.saves = 1; C.update(m, 0.7);
+  openGate(); m.ball.shot = null; m.stats.red.blocks = 1; C.update(m, 0.7);
   const saveCall = await settled();
-  check('a save gets called', C.banks.save.includes(saveCall), saveCall);
-  openGate(); m.score.blue = 1; a.stats.goals = 1; m.goals.push({ team: 'blue', scorer: a, assist: b, own: false });
+  check('a block gets called', C.banks.save.includes(saveCall), saveCall);
+  openGate(); m.score.blue = 2; a.stats.goals = 2; m.goals.push({ team: 'blue', scorer: a, assist: b, own: false, pts: 2, big: false });
   C.update(m, 0.1);
   const goalCall = await settled();
-  // the call has to be one the goal bank actually holds, rather than a list that goes stale
-  check('a goal is called', C.banks.goal.some((g) => goalCall.startsWith(g)), goalCall);
+  // the call has to be one the bank actually holds, rather than a list that goes stale (an ordinary
+  // two is a bucket; a dunk, a three or an ult is the big bank)
+  check('a basket is called', C.banks.bucket.some((g) => goalCall.startsWith(g)), goalCall);
   check('and it says who scored it', /YOU HAVE DONE IT/.test(goalCall), goalCall);
   check('and who set it up', /build-up/.test(goalCall), goalCall);
   // an own goal is called as one
   openGate(); const m2 = match(); C.reset(m2); await settled();
-  m2.score.red = 1; m2.goals.push({ team: 'red', scorer: d, assist: null, own: true });
+  m2.score.red = 2; m2.goals.push({ team: 'red', scorer: d, assist: null, own: true, pts: 2 });
   C.update(m2, 0.1);
   const ownCall = await settled();
-  check('an own goal is called as an own goal', C.banks.own.some((g) => ownCall.startsWith(g)), ownCall);
-  // a hat-trick is called
+  check('the wrong basket is called as one', C.banks.own.some((g) => ownCall.startsWith(g)), ownCall);
+  // twenty points is called
   openGate(); const m3 = match(); C.reset(m3); await settled();
-  a.stats.goals = 3; m3.score.blue = 1; m3.goals.push({ team: 'blue', scorer: a, assist: null, own: false });
+  a.stats.goals = 20; m3.score.blue = 20; m3.goals.push({ team: 'blue', scorer: a, assist: null, own: false, pts: 2, big: false });
   C.update(m3, 0.1);
-  check('a hat-trick gets its own shout', /HAT-TRICK/.test(await settled()), line());
+  check('twenty points gets its own shout', /TWENTY POINTS/.test(await settled()), line());
   a.stats.goals = 0;
 
   console.log('a shootout is left alone');

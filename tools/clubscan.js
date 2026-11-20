@@ -77,7 +77,7 @@ async function finishWith(id, mine, theirs) {
     const p = seat.player, r = sim.statRatings({ spd: 60, sht: 60, pas: 60, ctl: 60, def: 60 });
     check('the server plays them at those stats', p && Math.abs(p.attr.speed - (1 + Math.max(-1, Math.min(1.6, (r.spd - 70) / 25)) * 0.08)) < 1e-9, p && p.attr);
     check('a club seat moves no country in the league', seat.club === null, seat.club);
-    check('the fill-ins are sharper for a strong player than the online base', room.m.diff.aiShotNoise < sim.ONLINE_BOTS.aiShotNoise, { noise: room.m.diff.aiShotNoise, base: sim.ONLINE_BOTS.aiShotNoise });
+    check('the fill-ins are sharper for a strong player than the online base', room.m.diff.shotPerfect > sim.ONLINE_BOTS.shotPerfect && room.m.diff.react < sim.ONLINE_BOTS.react, { shotPerfect: room.m.diff.shotPerfect, base: sim.ONLINE_BOTS.shotPerfect });
     await finishWith('star', 1, 0);
     const end = await waitFor(ws, 'end', n);
     check('the result reaches them, no league line', end && end.league === null, end && end.league);

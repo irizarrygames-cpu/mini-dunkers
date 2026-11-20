@@ -1,21 +1,20 @@
 // Progression and content around the match: clubs, cup, unlocks, XP, challenges.
 
 // ===== Match formats ================================================
-// Outfield roster besides you (blue) and the opponents (red). Both sides always have a keeper.
+// Who plays besides you (blue) and who you play against (red). Roles: pg the ball-handler, wing a
+// shooter, big the one who lives near the rim.
 const FORMATS = {
-  '4v4': { blue: [['def', 3], ['midL', 6], ['midR', 7]], red: [['def', 2], ['midL', 4], ['midR', 5], ['att', 8]] },
-  '3v3': { blue: [['def', 3], ['mid', 6]], red: [['def', 2], ['mid', 4], ['att', 8]] },
-  '2v2': { blue: [['def', 3]], red: [['def', 2], ['att', 8]] },
-  '1v1': { blue: [], red: [['att', 8]] },
-  // practice: you, one defender to beat, and their keeper
-  training: { blue: [], red: [['def', 2]] },
+  '3v3': { blue: [['wing', 3], ['big', 6]], red: [['pg', 2], ['wing', 4], ['big', 8]] },
+  '2v2': { blue: [['big', 3]], red: [['pg', 2], ['big', 8]] },
+  '1v1': { blue: [], red: [['pg', 8]] },
+  // practice: you and one defender to beat
+  training: { blue: [], red: [['pg', 2]] },
 };
-// Symmetric sides for online matches. Real players take the roles from the front.
+// The same on both sides for online matches. Real players take the roles from the front.
 const SIDES = {
-  '4v4': { blue: [['att', 10], ['def', 3], ['midL', 6], ['midR', 7]], red: [['att', 9], ['def', 2], ['midL', 4], ['midR', 5]] },
-  '3v3': { blue: [['att', 10], ['def', 3], ['mid', 6]], red: [['att', 9], ['def', 2], ['mid', 4]] },
-  '2v2': { blue: [['att', 10], ['def', 3]], red: [['att', 9], ['def', 2]] },
-  '1v1': { blue: [['att', 10]], red: [['att', 9]] },
+  '3v3': { blue: [['pg', 10], ['wing', 3], ['big', 6]], red: [['pg', 9], ['wing', 2], ['big', 4]] },
+  '2v2': { blue: [['pg', 10], ['big', 3]], red: [['pg', 9], ['big', 2]] },
+  '1v1': { blue: [['pg', 10]], red: [['pg', 9]] },
 };
 
 // ===== Unlocks ======================================================
@@ -71,7 +70,7 @@ const PRICES = {
 };
 // base = leather, patch = panels; multi cycles panel colors
 const BALLS = [
-  { id: 'classic', name: tl('Classic'), base: '#ffffff', patch: '#161a33' },
+  { id: 'classic', name: tl('Classic'), base: '#f07a1f', patch: '#2b1a12' },
   { id: 'beach', name: tl('Beach'), base: '#ffffff', patch: '#ff3a3f', multi: ['#ff3a3f', '#2f7bff', '#ffe14d'] },
   { id: 'volt', name: tl('Volt'), base: '#d8ff3a', patch: '#161a33' },
   { id: 'fire', name: tl('Inferno'), base: '#ff8a1f', patch: '#8a1f00', glow: '#ffb03a' },
@@ -116,7 +115,7 @@ const BALLS = [
   { id: 'discoball', name: tl('Disco Ball'), rarity: 'legendary', base: '#5b6475', patch: '#8e99ad', noPanels: true, tiles: ['#eef3fa', '#c9d2de', '#9fb0c8', '#ffffff'], glow: '#ffffff', stars: true },
 ];
 // A plain ground for anything that runs without the country grounds loaded (the server sim).
-const FALLBACK_STADIUM = { id: 'day', kind: 'day', name: 'MINI STRIKERS PARK', grass: [['#5acb45', '#55c541'], ['#4fbd3b', '#4bb838']], stands: ['#34439a', '#3a4aa0'], apron: '#8fa0c8', tuft: '#3f9f31', pattern: 'checks', weather: 'clouds', sky: ['#6fc2ff', '#a8dcff'], far: '#7fb8e8', hats: 'day', roof: '#242c63', trim: '#ffe14d', seat: '#34439a', chant: tl("LET'S GO!"), motif: 'skyline' };
+const FALLBACK_STADIUM = { id: 'day', kind: 'day', name: 'MINI DUNKERS ARENA', grass: [['#5acb45', '#55c541'], ['#4fbd3b', '#4bb838']], stands: ['#34439a', '#3a4aa0'], apron: '#8fa0c8', tuft: '#3f9f31', pattern: 'checks', weather: 'clouds', sky: ['#6fc2ff', '#a8dcff'], far: '#7fb8e8', hats: 'day', roof: '#242c63', trim: '#ffe14d', seat: '#34439a', chant: tl("LET'S GO!"), motif: 'skyline' };
 
 const Shop = {
   // (a season pass item has no price, but it is never free: you own it only once you have won it)
@@ -150,31 +149,34 @@ const Levels = {
   matchXp(m) {
     const h = m.human.stats;
     const r = m.result.outcome;
-    return 40 + h.goals * 25 + h.assists * 15 + h.tackles * 6 + h.skills * 2 + (h.dodges || 0) * 5 + (r === 'win' ? 60 : r === 'draw' ? 25 : 0);
+    // (goals: points scored)
+    return 40 + h.goals * 8 + h.assists * 12 + (h.steals || 0) * 8 + (h.blocks || 0) * 8 + (h.rebounds || 0) * 4 + h.skills * 2 + (h.dodges || 0) * 5 + (r === 'win' ? 60 : r === 'draw' ? 25 : 0);
   },
 };
 
 // ===== Match challenges =============================================
+// (a player's goals are the points they scored)
 const CHALLENGES = [
-  { id: 'score2', text: tl('Score 2 goals'), coins: 40, done: (m) => m.human.stats.goals >= 2, net: (st) => st.goals >= 2 },
-  { id: 'hattrick', text: tl('Score a hat-trick'), coins: 90, done: (m) => m.human.stats.goals >= 3, net: (st) => st.goals >= 3 },
-  { id: 'tackle3', text: tl('Win 3 tackles'), coins: 30, done: (m) => m.human.stats.tackles >= 3, net: (st) => st.tackles >= 3 },
+  { id: 'score2', text: tl('Score 10 points'), coins: 40, done: (m) => m.human.stats.goals >= 10, net: (st) => st.goals >= 10 },
+  { id: 'hattrick', text: tl('Score 20 points'), coins: 90, done: (m) => m.human.stats.goals >= 20, net: (st) => st.goals >= 20 },
+  { id: 'tackle3', text: tl('Make 2 steals'), coins: 35, done: (m) => (m.human.stats.steals || 0) >= 2, net: (st) => (st.steals || 0) >= 2 },
   { id: 'skill5', text: tl('Pull off 5 skills'), coins: 25, done: (m) => m.human.stats.skills >= 5, net: (st) => st.skills >= 5 },
-  { id: 'dodge2', text: tl('Dodge 2 tackles'), coins: 40, done: (m) => (m.human.stats.dodges || 0) >= 2, net: (st) => (st.dodges || 0) >= 2 },
+  { id: 'dodge2', text: tl('Block a shot'), coins: 45, done: (m) => (m.human.stats.blocks || 0) >= 1, net: (st) => (st.blocks || 0) >= 1 },
   { id: 'power', text: tl('Score with a power shot'), coins: 50, done: (m) => m.flags.powerGoal },
-  { id: 'nutmeg', text: tl('Nutmeg someone'), coins: 40, done: (m) => m.flags.nutmeg },
-  { id: 'assist', text: tl('Assist a goal'), coins: 35, team: true, done: (m) => m.human.stats.assists >= 1, net: (st) => st.assists >= 1 },
-  { id: 'clean', text: tl('Keep a clean sheet'), coins: 60, done: (m) => m.phase === 'over' && m.score.red === 0, net: (st, mine, theirs, over) => over && theirs === 0 },
+  { id: 'nutmeg', text: tl('Dunk it'), coins: 40, done: (m) => m.flags.dunk },
+  { id: 'assist', text: tl('Make an assist'), coins: 35, team: true, done: (m) => m.human.stats.assists >= 1, net: (st) => st.assists >= 1 },
+  { id: 'clean', text: tl('Hold them under 10 points'), coins: 60, done: (m) => m.phase === 'over' && m.score.red < 10, net: (st, mine, theirs, over) => over && theirs < 10 },
   { id: 'pass8', text: tl('Complete 8 passes'), coins: 25, team: true, done: (m) => m.human.stats.passes >= 8, net: (st) => st.passes >= 8 },
-  { id: 'curl', text: tl('Score a curling shot'), coins: 45, done: (m) => m.flags.curlGoal },
-  { id: 'win2', text: tl('Win by 2+ goals'), coins: 50, done: (m) => m.phase === 'over' && m.score.blue - m.score.red >= 2, net: (st, mine, theirs, over) => over && mine - theirs >= 2 },
+  { id: 'curl', text: tl('Hit a three'), coins: 45, done: (m) => m.flags.three },
+  { id: 'win2', text: tl('Win by 6 or more'), coins: 50, done: (m) => m.phase === 'over' && m.score.blue - m.score.red >= 6, net: (st, mine, theirs, over) => over && mine - theirs >= 6 },
+  { id: 'board3', text: tl('Grab 3 rebounds'), coins: 35, done: (m) => (m.human.stats.rebounds || 0) >= 3, net: (st) => (st.rebounds || 0) >= 3 },
 ];
 
 // ranked is 1v1, so the team ones (an assist, eight passes) are out of that pool
 const NET_CHALLENGES = CHALLENGES.filter((c) => c.net && !c.team);
 
 const Challenges = {
-  roll(format = '4v4') {
+  roll(format = '3v3') {
     const pool = CHALLENGES.filter((c) => !(c.team && format === '1v1'));
     const out = [];
     while (out.length < 3 && pool.length) out.push(pool.splice((Math.random() * pool.length) | 0, 1)[0]);
@@ -242,30 +244,30 @@ const Cup = {
 const statTotal = (d) => STAT_KEYS.reduce((n, k) => n + statLevel(d.stats && d.stats[k]), 0);
 const statBest = (d) => statOvr(d.stats);
 const ACHIEVEMENTS = [
-  { id: 'goal1', name: tl('Off The Mark'), text: tl('Score your first goal'), goal: 1, coins: 50, stat: (d) => d.goals },
+  { id: 'goal1', name: tl('Off The Mark'), text: tl('Score your first points'), goal: 1, coins: 50, stat: (d) => d.goals },
   { id: 'win1', name: tl('First Win'), text: tl('Win a match'), goal: 1, coins: 60, stat: (d) => d.wins },
-  { id: 'goal25', name: tl('Sharpshooter'), text: tl('Score 25 goals'), goal: 25, coins: 200, stat: (d) => d.goals },
-  { id: 'hattrick', name: tl('Hat-trick Hero'), text: tl('Score 3 goals in one match'), goal: 1, coins: 150, stat: (d) => d.career.hattricks },
-  { id: 'tackle25', name: tl('Ball Winner'), text: tl('Win 25 tackles'), goal: 25, coins: 150, stat: (d) => d.career.tackles },
+  { id: 'goal25', name: tl('Sharpshooter'), text: tl('Score 100 points'), goal: 100, coins: 200, stat: (d) => d.goals },
+  { id: 'hattrick', name: tl('Hot Hand'), text: tl('Score 15 points in one match'), goal: 1, coins: 150, stat: (d) => d.career.hattricks },
+  { id: 'tackle25', name: tl('Ball Hawk'), text: tl('Make 25 steals'), goal: 25, coins: 150, stat: (d) => d.career.tackles },
   { id: 'skill50', name: tl('Showboat'), text: tl('Pull off 50 skills'), goal: 50, coins: 150, stat: (d) => d.career.skills },
-  { id: 'formats', name: tl('All-Rounder'), text: tl('Play 1v1, 2v2, 3v3 and 4v4'), goal: 4, coins: 150, stat: (d) => Object.keys(d.career.formats).length },
+  { id: 'formats', name: tl('All-Rounder'), text: tl('Play 1v1, 2v2 and 3v3'), goal: 3, coins: 150, stat: (d) => ['1v1', '2v2', '3v3'].filter((f) => d.career.formats[f]).length },
   { id: 'assist15', name: tl('Playmaker'), text: tl('Make 15 assists'), goal: 15, coins: 250, stat: (d) => d.career.assists },
-  { id: 'dodge25', name: tl('Escape Artist'), text: tl('Dodge 25 tackles'), goal: 25, coins: 200, stat: (d) => d.career.dodges },
-  { id: 'clean5', name: tl('Brick Wall'), text: tl('Keep 5 clean sheets'), goal: 5, coins: 200, stat: (d) => d.career.cleanSheets },
+  { id: 'dodge25', name: tl('Escape Artist'), text: tl('Beat 25 steal attempts'), goal: 25, coins: 200, stat: (d) => d.career.dodges },
+  { id: 'clean5', name: tl('Lockdown'), text: tl('Hold a side under 10 points 5 times'), goal: 5, coins: 200, stat: (d) => d.career.cleanSheets },
   { id: 'win10', name: tl('Winner'), text: tl('Win 10 matches'), goal: 10, coins: 250, stat: (d) => d.wins },
-  { id: 'power10', name: tl('Screamers'), text: tl('Score 10 power-shot goals'), goal: 10, coins: 300, stat: (d) => d.career.powerGoals },
+  { id: 'power10', name: tl('Power Shooter'), text: tl('Make 10 power shots'), goal: 10, coins: 300, stat: (d) => d.career.powerGoals },
   { id: 'streak5', name: tl('On Fire'), text: tl('Win 5 matches in a row'), goal: 5, coins: 400, stat: (d) => d.career.bestStreak },
   { id: 'cup1', name: tl('Silverware'), text: tl('Win the Cup'), goal: 1, coins: 300, stat: (d) => d.trophies },
   { id: 'train10', name: tl('Hard Worker'), text: tl('Upgrade your stats 10 times'), goal: 10, coins: 400, stat: (d) => statTotal(d) },
   { id: 'signed', name: tl('Signed!'), text: tl('Sign for a club'), goal: 1, coins: 200, stat: (d) => (d.cc && d.cc.signed) || 0 },
-  { id: 'goal100', name: tl('Goal Machine'), text: tl('Score 100 goals'), goal: 100, coins: 600, stat: (d) => d.goals },
+  { id: 'goal100', name: tl('Bucket Machine'), text: tl('Score 500 points'), goal: 500, coins: 600, stat: (d) => d.goals },
   { id: 'veteran', name: tl('Veteran'), text: tl('Play 100 matches'), goal: 100, coins: 800, stat: (d) => d.matches },
   { id: 'ovr70', name: tl('Rising Star'), text: tl('Get your player to 70 OVR'), goal: 70, coins: 500, stat: (d) => statBest(d) },
   { id: 'cc1', name: tl('Champions'), text: tl('Win the Champions Cup'), goal: 1, coins: 600, stat: (d) => (d.cc && d.cc.titles) || 0 },
   { id: 'win50', name: tl('Serial Winner'), text: tl('Win 50 matches'), goal: 50, coins: 1000, stat: (d) => d.wins },
   { id: 'cup5', name: tl('Dynasty'), text: tl('Win the Cup 5 times'), goal: 5, coins: 1200, stat: (d) => d.trophies },
   { id: 'ovr80', name: tl('Superstar'), text: tl('Get your player to 80 OVR'), goal: 80, coins: 1000, stat: (d) => statBest(d) },
-  { id: 'goal300', name: tl('Living Legend'), text: tl('Score 300 goals'), goal: 300, coins: 1500, stat: (d) => d.goals },
+  { id: 'goal300', name: tl('Living Legend'), text: tl('Score 2,000 points'), goal: 2000, coins: 1500, stat: (d) => d.goals },
 ];
 
 const Achievements = {

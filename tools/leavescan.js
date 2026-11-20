@@ -85,13 +85,13 @@ const outcomeOf = (id) => { const r = records.filter((x) => x.id === id); return
     for (const w of Object.values(ws)) w.close();
   }
 
-  console.log('4v4: three of four leave (poor bots), then the fourth');
+  console.log('3v3: two of three leave (poor bots), then the third');
   {
-    const ws = await match('4v4', ['a4', 'b4', 'c4', 'd4'], ['e4']);
+    const ws = await match('3v3', ['a4', 'b4', 'c4'], ['e4']);
     await sleep(4200);
-    for (const id of ['a4', 'b4', 'c4']) { ws[id].msg({ t: 'leave' }); await sleep(150); }
-    check('still playing with one human left on the team', !ws.d4.last('end') && !ws.e4.last('end'));
-    ws.d4.msg({ t: 'leave' });
+    for (const id of ['a4', 'b4']) { ws[id].msg({ t: 'leave' }); await sleep(150); }
+    check('still playing with one human left on the team', !ws.c4.last('end') && !ws.e4.last('end'));
+    ws.c4.msg({ t: 'leave' });
     await sleep(100);
     const end = ws.e4.last('end');
     check('everyone gone: e4 wins', end && end.outcome === 'win' && end.forfeit);

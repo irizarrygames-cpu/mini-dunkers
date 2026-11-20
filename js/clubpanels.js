@@ -43,7 +43,7 @@ Object.assign(UI, {
     bar.style.setProperty('--c', clubUi(club));
     bar.innerHTML = `<canvas width="60" height="60"></canvas>
       <span class="cb-mid"><small>${tl('CLUB CAREER')}</small><b>${club.name}</b>
-        <em>${live ? tl('{0} PER GOAL · {1} PER ASSIST · {2} LEFT', [s.goal, s.assist, Career.timeLeft(s.until - Date.now())]) : tl('CONTRACT OVER · SIGN A NEW ONE')}</em></span>
+        <em>${live ? tl('{0} PER POINT · {1} PER ASSIST · {2} LEFT', [s.goal, s.assist, Career.timeLeft(s.until - Date.now())]) : tl('CONTRACT OVER · SIGN A NEW ONE')}</em></span>
       <span class="cb-offers">${tl('OFFERS')}${fresh || !live ? `<i class="badge">${fresh ? tl('NEW') : '!'}</i>` : ''}</span>`;
     this.crestBadge(bar.querySelector('canvas'), club);
     if (!bar._wired) { bar._wired = true; bar.addEventListener('click', () => { this.tap(); this.openModal('offers'); }); }
@@ -62,10 +62,10 @@ Object.assign(UI, {
         <div class="cc-c-mid">
           <small>${live ? tl('YOUR CLUB') : tl('CONTRACT OVER')}</small>
           <strong>${club.name}</strong>
-          <span>${tl('{0} PER GOAL · {1} PER ASSIST', [s.goal, s.assist])}</span>
+          <span>${tl('{0} PER POINT · {1} PER ASSIST', [s.goal, s.assist])}</span>
           <em>${live ? tl('{0} LEFT ON YOUR CONTRACT', [Career.timeLeft(s.until - now)]) : tl('Sign a new offer to get paid again.')}</em>
         </div>
-        <div class="cc-c-tot"><b><span class="coin"></span>${fmtCoins(s.earned)}</b><small>${tl('EARNED')}</small><span>${tlN(s.goals, '{0} GOAL', '{0} GOALS')} · ${tlN(s.assists, '{0} ASSIST', '{0} ASSISTS')}</span></div>
+        <div class="cc-c-tot"><b><span class="coin"></span>${fmtCoins(s.earned)}</b><small>${tl('EARNED')}</small><span>${tlN(s.goals, '{0} POINT', '{0} POINTS')} · ${tlN(s.assists, '{0} ASSIST', '{0} ASSISTS')}</span></div>
       </div>` : `<p class="note big-note">${tl('No club yet. Four clubs want you: pick one and you play for them.')}</p>`;
     const next = Career.periodEnds() - now;
     const cards = offers.map((o) => {
@@ -74,14 +74,14 @@ Object.assign(UI, {
         <canvas width="96" height="96" data-crest="${c.id}"></canvas>
         <strong>${c.name}</strong>
         ${stars(c.stars)}
-        <div class="cc-pay"><span><b>+${o.goal}</b><small>${tl('PER GOAL')}</small></span><span><b>+${o.assist}</b><small>${tl('PER ASSIST')}</small></span></div>
+        <div class="cc-pay"><span><b>+${o.goal}</b><small>${tl('PER POINT')}</small></span><span><b>+${o.assist}</b><small>${tl('PER ASSIST')}</small></span></div>
         <button class="mid-btn ${mine ? '' : 'green'}" data-sign="${c.id}" ${signed ? 'disabled' : ''}>${mine ? tl('SIGNED') : signed ? tl('GONE') : tl('SIGN')}</button>
       </div>`;
     }).join('');
     body.innerHTML = `${contract}
       <h3 class="fr-h">${signed ? tl('NEW OFFERS IN {0}', [Career.timeLeft(next)]) : tl('PICK ONE · NEW OFFERS IN {0}', [Career.timeLeft(next)])}</h3>
       <div class="cc-offers">${cards}</div>
-      <p class="note">${tl('Every goal and every assist for your club pays you coins until the contract runs out (three days). You can sign one offer every three days. Bigger clubs pay more, and better stats bring better offers.')}</p>
+      <p class="note">${tl('Every point and every assist for your club pays you coins until the contract runs out (three days). You can sign one offer every three days. Bigger clubs pay more, and better stats bring better offers.')}</p>
       ${club ? `<div class="cup-foot"><button class="mid-btn" data-arena-go="${Clubs.clubMode() ? 'intl' : 'club'}">${Clubs.clubMode() ? tl('PLAY INTERNATIONAL') : tl('PLAY FOR {0}', [I18N.upper(club.name)])}</button></div>` : ''}`;
     body.querySelectorAll('canvas[data-crest]').forEach((cv) => this.crestBadge(cv, Clubs.get(cv.dataset.crest)));
     body.querySelectorAll('[data-sign]').forEach((b) => b.addEventListener('click', () => {
@@ -110,8 +110,8 @@ Object.assign(UI, {
       <small class="cc-sig-kick">${tl('SIGNED!')}</small>
       <canvas width="180" height="180"></canvas>
       <strong>${tl('WELCOME TO {0}!', [I18N.upper(club.name)])}</strong>
-      <p>${tl('You wear their kit and play at their ground in every mode, and the World Cup is the Champions Cup now.')}</p>
-      <div class="cc-pay big"><span><b>+${s.goal}</b><small>${tl('PER GOAL')}</small></span><span><b>+${s.assist}</b><small>${tl('PER ASSIST')}</small></span></div>
+      <p>${tl('You wear their kit and play on their court in every mode, and the World Cup is the Champions Cup now.')}</p>
+      <div class="cc-pay big"><span><b>+${s.goal}</b><small>${tl('PER POINT')}</small></span><span><b>+${s.assist}</b><small>${tl('PER ASSIST')}</small></span></div>
       <div class="gate-btns"><button class="big-btn green" data-go>${tl("LET'S GO")}</button></div>
     </div></div>`;
     document.body.appendChild(el);
@@ -204,11 +204,11 @@ Object.assign(UI, {
     el.innerHTML = `<div class="panel small"><div class="gate">
       <strong>${tl('NEW: CLUB CAREER!')}</strong>
       <ul class="cc-new-list">
-        <li>${tl('Press PLAY, then CLUBS: four clubs make you an offer every three days. Every goal and assist pays you coins.')}</li>
+        <li>${tl('Press PLAY, then CLUBS: four clubs make you an offer every three days. Every point and assist pays you coins.')}</li>
         <li>${tl('Every mode works for your club, and the World Cup is the Champions Cup.')}</li>
         <li>${tl('One player, all yours: change the look, and spend coins on stats.')}</li>
         <li>${tl('Wear as many accessories as you like, all at once.')}</li>
-        <li>${tl('Your ULT is a different kick every time, in flames: volley, bicycle kick, backflip kick or scorpion kick.')}</li>
+        <li>${tl('Your ULT sets you on fire: by the rim a windmill or tomahawk dunk, further out a fadeaway or a skyhook.')}</li>
       </ul>
       ${refund ? `<p class="cc-refund">${tl('There are no characters to buy any more, so every coin you spent on them is back: +{0} COINS', [fmtCoins(refund)])}</p>` : ''}
       <div class="gate-btns"><button class="mid-btn" data-later>${tl('LATER')}</button><button class="mid-btn green" data-go>${tl('SEE THE OFFERS')}</button></div>

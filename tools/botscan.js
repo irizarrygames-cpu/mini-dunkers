@@ -14,7 +14,7 @@ const W = CFG.FIELD_W, H = CFG.FIELD_H;
 const args = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 const AUTO = process.argv.includes('--ai'), CLEAN = process.argv.includes('--clean');
 const N = Number(args[0] || 12);
-const FORMAT = args[1] || '4v4';
+const FORMAT = args[1] || '3v3';
 const OPP = args[2] || 'croatia';
 if (CLEAN) sim.run('for (const k in BOT_MISTAKES) if (typeof BOT_MISTAKES[k] === "number") BOT_MISTAKES[k] = 0;');
 // --oldkeeper: the goalmouth as it was before the smother fix, to compare balance against
@@ -73,7 +73,7 @@ for (let i = 0; i < N; i++) {
         if (b.owner && b.owner.team === 'red' && d < 130 && h.slideCd <= 0 && wait < 0) wait = 60;
       }
       if (wait > 0 && --wait === 0) { I.q |= 4; wait = -1; }
-      if (charge > 0 && --charge === 0) { I.move.y = m.keepers.red.y > H / 2 ? -0.7 : 0.7; I.q |= 16; charge = -1; }
+      if (charge > 0 && --charge === 0) { I.q |= 16; charge = -1; }
     }
     sim.step(m, CFG.STEP, null);
 

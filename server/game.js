@@ -22,21 +22,21 @@ const INTRO_MS = 3500;              // the VS card before kickoff
 // empty spots fill with players who look like everyone else
 const QUEUE_WAIT_MIN = 30000, QUEUE_WAIT_MAX = 33000;
 const RECONNECT_MS = 20000;         // a dropped player keeps their seat this long
-const PARTY_MAX = 4;                // a party fills one side at most
+const PARTY_MAX = 3;                // a party fills one side at most (3v3 is the biggest)
 const PARTY_INVITE_MS = 60000;      // an invite you don't answer runs out
 const CHALLENGE_INVITE_MS = 60000;
 const PARTY_OFFLINE_MS = 60000;     // someone whose game closed keeps their party spot this long
 const CHAT_GAP_MS = 1200, CHAT_BURST = 5, CHAT_BURST_MS = 10000; // quick chat: one at a time, five in any 10s
 const MATCH_MINUTES = 2;            // every match is two minutes: CFG.MATCH_MINUTES in js/config.js
-// 'pens' and 'fk' (free kicks) are both one-a-side shootouts, run by server/pens.js
-const FORMAT_SIZE = { 'pens': 1, 'fk': 1, '1v1': 1, '2v2': 2, '3v3': 3, '4v4': 4 };
+// 'pens' (the 3-point contest) and 'fk' (free throws) are both one-a-side shootouts, run by server/pens.js
+const FORMAT_SIZE = { 'pens': 1, 'fk': 1, '1v1': 1, '2v2': 2, '3v3': 3 };
 const SHOOTOUT = (format) => format === 'pens' || format === 'fk';
 const PHASES = ['kickoff', 'play', 'goal', 'reset', 'timeup', 'over', 'replay', 'cele', 'restart'];
-// PRO MATCH online (build 116): the bigger pitch with throw-ins, corners and goal kicks, 2v2 to 4v4.
+// PRO MATCH online: the real rules (out of bounds, the shot clock, fouls and free throws), 2v2 and 3v3.
 // Asked for as 'pro/2v2' and so on; its rooms play in a sandbox of their own (simOf).
-const PRO_FORMATS = new Set(['2v2', '3v3', '4v4']);
+const PRO_FORMATS = new Set(['2v2', '3v3']);
 const proFormat = (f) => (typeof f === 'string' && f.startsWith('pro/') && PRO_FORMATS.has(f.slice(4)) ? f.slice(4) : null);
-const RESTART_KINDS = ['throw', 'corner', 'goalkick'];
+const RESTART_KINDS = ['throw', 'ft'];   // PRO MATCH: an inbound, free throws
 const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 const BOT_NAME_A = ['ace', 'blitz', 'cyber', 'dark', 'echo', 'frost', 'ghost', 'hyper', 'iron', 'jet', 'lunar', 'neon',
@@ -105,7 +105,7 @@ function createGame({ getUser, userName, saveDB, onlineRecord, isNameTaken, worl
   }
   const BOT_CELEBS = ['jump', 'jump', 'flex', 'salute', 'spin', 'shush', 'heart', 'dab', 'kneeslide', 'kneeslide', 'airplane', 'chestpump', 'callme', 'chill', 'robot', 'griddy', 'siuu', 'calmdown', 'pointsky', 'floss', 'bird', 'kungfu'];
   const conns = new Map();   // userId -> connection
-  const queues = { 'pens': [], 'fk': [], '1v1': [], '2v2': [], '3v3': [], '4v4': [], 'ranked': [] };
+  const queues = { 'pens': [], 'fk': [], '1v1': [], '2v2': [], '3v3': [], 'ranked': [] };
   const rooms = new Map();   // roomId -> room
   const codes = new Map();   // code -> room (private lobbies)
   let nextRoom = 1;
@@ -146,8 +146,8 @@ function createGame({ getUser, userName, saveDB, onlineRecord, isNameTaken, worl
   const CHALLENGE_MODES = { match: { format: '1v1' }, pens: { format: 'pens' }, fk: { format: 'fk' }, pro: { format: '2v2', pro: true } };
   // (written out as msg: lines so tools/i18nscan.js finds each one to translate)
   const challengeWords = {
-    sent: (mode, n) => ({ match: { msg: `Challenged ${n} to a 1v1` }, pens: { msg: `Challenged ${n} to penalties` }, fk: { msg: `Challenged ${n} to free kicks` }, pro: { msg: `Challenged ${n} to a PRO MATCH` } })[mode].msg,
-    start: (mode, n) => ({ match: { msg: `1v1 with ${n} starting` }, pens: { msg: `Penalties with ${n} starting` }, fk: { msg: `Free kicks with ${n} starting` }, pro: { msg: `PRO MATCH with ${n} starting` } })[mode].msg,
+    sent: (mode, n) => ({ match: { msg: `Challenged ${n} to a 1v1` }, pens: { msg: `Challenged ${n} to a 3-point contest` }, fk: { msg: `Challenged ${n} to free throws` }, pro: { msg: `Challenged ${n} to a PRO MATCH` } })[mode].msg,
+    start: (mode, n) => ({ match: { msg: `1v1 with ${n} starting` }, pens: { msg: `3-point contest with ${n} starting` }, fk: { msg: `Free throws with ${n} starting` }, pro: { msg: `PRO MATCH with ${n} starting` } })[mode].msg,
     declined: (mode, n) => ({ match: { msg: `${n} declined the 1v1 challenge` }, other: { msg: `${n} declined the challenge` } })[mode === 'match' || !mode ? 'match' : 'other'].msg,
   };
   const challenges = new Map(); // recipient -> { id, from, until, mode }
@@ -454,7 +454,6 @@ function createGame({ getUser, userName, saveDB, onlineRecord, isNameTaken, worl
     switch (msg.t) {
       case 'i': return input(id, msg);
       case 'pen.shot': return penShot(id, msg);
-      case 'pen.dive': return penDive(id, msg);
       case 'ping': return send(conn, { t: 'pong', c: msg.c, s: Date.now() });
       case 'chat': return quickChat(conn, msg.m);
       case 'emote': return quickEmote(conn, msg.e);
@@ -857,7 +856,7 @@ function createGame({ getUser, userName, saveDB, onlineRecord, isNameTaken, worl
       clubs: room.clubs, wc: seat.wc, startsIn: Math.max(0, room.startAt - Date.now()),
       // (nothing here says which spots are filled in: online, a filled spot is just another player)
       players: room.seats.map((s) => ({ team: s.team, name: s.name, character: s.character })),
-      state: { first: p.model.first, team: p.model.team, n: p.model.n, score: p.model.score, kicks: p.model.kicks, winner: p.model.winner, phase: p.phase, deadline: p.deadline, in: p.deadline ? Math.max(0, p.deadline - Date.now()) : 0, wall: p.model.wall },
+      state: { first: p.model.first, team: p.model.team, n: p.model.n, score: p.model.score, kicks: p.model.kicks, winner: p.model.winner, phase: p.phase, deadline: p.deadline, in: p.deadline ? Math.max(0, p.deadline - Date.now()) : 0, spot: PenModel.spotOf(p.model, p.model.team) },
       opponent: room.seats.find((s) => s.team === other).name,
     };
   }
@@ -885,7 +884,7 @@ function createGame({ getUser, userName, saveDB, onlineRecord, isNameTaken, worl
     if (!clubs.red) clubs.red = pickOne(poolFor(clubs.blue).filter((c) => c !== clubs.blue));
     const model = PenModel.create((Date.now() ^ nextRoom * 2654435761) >>> 0, kind);
     const room = { id: nextRoom++, code, format: kind === 'fk' ? 'fk' : 'pens', seats, state: 'intro', clubs, startAt: Date.now() + INTRO_MS, created: Date.now(), wc: wcRound,
-      pen: { model, phase: 'intro', pending: { shot: null, dive: null }, deadline: Date.now() + INTRO_MS + 10000, nextAt: 0 } };
+      pen: { model, phase: 'intro', pending: { shot: null }, deadline: Date.now() + INTRO_MS + 10000, nextAt: 0 } };
     rooms.set(room.id, room);
     for (const seat of seats) if (seat.human) send(seat.conn, penView(room, seat));
     return room;
@@ -896,88 +895,48 @@ function createGame({ getUser, userName, saveDB, onlineRecord, isNameTaken, worl
     const keeper = room.seats.find((s) => s.team !== room.pen.model.team);
     return { shooter, keeper };
   }
-  // A kick, as it happens (build 125). Before, the ball was not struck until both the shot and the
-  // keeper's dive were in, so a shooter stood frozen at the ball for as long as the keeper took (up
-  // to the 10 s clock). Now nothing waits for the other player:
-  //   input   the shooter has the clock (10 s) to let go; a filled-in taker lines it up for a moment.
-  //           The keeper may dive already (a guess).
-  //   runup   the shooter has gone: a run-up (a filled-in taker takes a longer run), then the strike.
-  //   flight  the ball is in the air (pen.kick says where). The keeper can still dive. The result
-  //           is settled the moment the dive is in, or when the ball gets there.
-  // A dive's td (when it began, from the strike, in seconds) is what the save maths uses. A dive made
-  // while the ball is in the air has the trip to the server allowed for: the keeper's game says how
-  // long after it saw the strike they went (lt), and the server takes that, never more than
-  // PEN_LAG_CREDIT earlier than when the dive arrived.
-  const PEN_RUN_MS = 300, PEN_BOT_RUN_MS = 900, PEN_LATE_MS = 120, PEN_LAG_CREDIT = 0.25;
-  const penFlightMs = (shot) => (shot.out === 'wall' ? shot.T * (PenModel.FK.AT / PenModel.FK.DIST) : shot.T) * 1000;
+  // A shot, as it happens. Nothing waits for the other player (there is nobody to beat but the rim):
+  //   input   the shooter has the clock (10 s) to let go of the meter; a filled-in shooter lines it
+  //           up for a moment.
+  //   runup   the shooter has gone up (pen.runup): the jump, then the release.
+  //   flight  the ball is in the air (pen.kick says what it will do). The result goes out when it
+  //           gets there (pen.result).
+  const PEN_RUN_MS = 300, PEN_BOT_RUN_MS = 700, PEN_LATE_MS = 120;
+  const penFlightMs = (shot) => shot.T * 1000;
   function penShot(id, msg) {
     const room = roomOf(id); if (!room || !room.pen || room.state !== 'playing' || room.pen.phase !== 'input') return;
     const { shooter } = penRoles(room); if (!shooter || shooter.userId !== id || room.pen.pending.shot) return;
-    room.pen.pending.shot = { ax: Number(msg.ax), az: Number(msg.az), power: Number(msg.power) };
+    room.pen.pending.shot = { rel: Number(msg.rel) };
     penRunup(room, PEN_RUN_MS, Date.now());
   }
-  function penDive(id, msg) {
-    const room = roomOf(id); if (!room || !room.pen || room.state !== 'playing') return;
-    const p = room.pen; if (p.phase !== 'input' && p.phase !== 'runup' && p.phase !== 'flight') return;
-    const { keeper } = penRoles(room); if (!keeper || keeper.userId !== id || p.pending.dive) return;
-    // (a which-way of -1..1 each; anything that is not a number is the middle, standing up)
-    const unit = (v, d) => { const x = Number(v); return Number.isFinite(x) ? Math.max(-1, Math.min(1, x)) : d; };
-    p.pending.dive = { dx: unit(msg.dx, 0), dz: unit(msg.dz, 1), at: Date.now(), lt: Number(msg.lt) };
-    if (p.phase === 'flight') penSettle(room, Date.now());
-  }
-  // when a dive began, in seconds from the strike (before it: below zero)
-  function penDiveTd(p, d) {
-    if (Number.isFinite(d.td)) return Math.max(-0.8, Math.min(1, d.td));   // a filled-in keeper's
-    const arrived = (d.at - p.kickAt) / 1000;
-    let td = arrived;
-    if (arrived > 0 && Number.isFinite(d.lt) && d.lt >= 0) td = Math.max(arrived - PEN_LAG_CREDIT, Math.min(arrived, d.lt));
-    return Math.max(-0.8, Math.min(1, td));
-  }
-  function penBotShot(p) {
-    const wall = p.model.wall, side = Math.random() < 0.5 ? -1 : 1;
-    // a free kick: mostly over the wall into its corner, otherwise round it on the keeper's side
-    if (wall) return Math.random() < 0.6
-      ? { ax: wall.side * (0.5 + Math.random() * 0.32), az: 0.72 + Math.random() * 0.23, power: 0.4 + Math.random() * 0.16 }
-      : { ax: -wall.side * (0.45 + Math.random() * 0.35), az: 0.1 + Math.random() * 0.5, power: 0.55 + Math.random() * 0.25 };
-    return { ax: side * (0.45 + Math.random() * 0.42), az: 0.08 + Math.random() * 0.68, power: 0.55 + Math.random() * 0.3 };
-  }
-  function penBotDive(p) {
-    // a free kick's keeper mostly goes its own way, the side the wall leaves open
-    const wall = p.model.wall, r = Math.random(), side = wall ? (r < 0.6 ? -wall.side : r < 0.85 ? wall.side : 0) : r < 0.44 ? -1 : r < 0.88 ? 1 : 0;
-    return { dx: side, dz: side ? -0.05 + Math.random() * 0.65 : 1, td: 0.12 + Math.random() * 0.18 };
-  }
-  // the shooter has gone: the run-up, then the strike
+  function penBotShot() { return { rel: PenModel.botRel(PenModel.BOT_PERFECT, Math.random) }; }
+  // the shooter has gone up
   function penRunup(room, ms, now) {
     const p = room.pen;
     p.phase = 'runup'; p.kickAt = now + ms; p.deadline = 0;
     penBroadcast(room, { t: 'pen.runup', team: p.model.team, n: p.model.n, ms });
   }
-  // the ball is struck: where it is going goes to everyone, with the keeper's dive if they went before it
+  // the ball leaves the hand: what it will do goes to everyone
   function penKick(room, now) {
-    const p = room.pen, { shooter, keeper } = penRoles(room);
-    p.shot = PenModel.strike(p.model, p.pending.shot, shooter.human ? 0.65 : 0.55);
+    const p = room.pen, { shooter } = penRoles(room);
+    p.shot = PenModel.strike(p.model, p.pending.shot, shooter.human ? 0.6 : 0.5);
     p.kickAt = now; p.phase = 'flight'; p.flightEnd = now + penFlightMs(p.shot) + PEN_LATE_MS;
-    if (!keeper.human && !p.pending.dive) p.pending.dive = penBotDive(p);
-    const d = p.pending.dive, dive = d ? { dx: d.dx, dz: d.dz, td: penDiveTd(p, d) } : null;
-    penBroadcast(room, { t: 'pen.kick', team: p.model.team, n: p.model.n, shot: p.shot, dive });
-    if (dive) penSettle(room, now);
+    penBroadcast(room, { t: 'pen.kick', team: p.model.team, n: p.model.n, shot: p.shot });
   }
-  // what happened: the moment the dive is in, or when the ball gets there without one
+  // what happened, when the ball gets there
   function penSettle(room, now) {
     const p = room.pen; if (p.phase !== 'flight') return;
-    const d = p.pending.dive, dive = d ? { dx: d.dx, dz: d.dz, td: penDiveTd(p, d) } : null;
-    // no dive at all: the keeper stood where they were
-    const result = PenModel.settle(p.model, p.shot, dive || { dx: 0, dz: 1, td: 1 });
+    const result = PenModel.settle(p.model, p.shot);
     const landed = Math.max(now, p.kickAt + penFlightMs(p.shot));
     p.phase = result.winner ? 'end' : 'result'; p.nextAt = landed + (result.winner ? 2300 : 2100); p.deadline = 0;
-    penBroadcast(room, { t: 'pen.result', ...result, dive });
+    penBroadcast(room, { t: 'pen.result', ...result });
   }
   function penBeginTurn(room, now) {
-    const p = room.pen; p.pending = { shot: null, dive: null }; p.shot = null; p.phase = 'input'; p.turnAt = now; p.deadline = now + 10000;
-    // a filled-in taker lines it up for a moment (after the 0.65 s every screen shows the turn for)
+    const p = room.pen; p.pending = { shot: null }; p.shot = null; p.phase = 'input'; p.turnAt = now; p.deadline = now + 10000;
+    // a filled-in shooter lines it up for a moment (after the 0.65 s every screen shows the turn for)
     const { shooter } = penRoles(room);
     p.botShotAt = shooter.human ? 0 : now + 650 + 600 + Math.random() * 900;
-    penBroadcast(room, { t: 'pen.turn', team: p.model.team, n: p.model.n, deadline: p.deadline, in: 10000, score: p.model.score, kicks: p.model.kicks, wall: p.model.wall });
+    penBroadcast(room, { t: 'pen.turn', team: p.model.team, n: p.model.n, deadline: p.deadline, in: 10000, score: p.model.score, kicks: p.model.kicks, spot: PenModel.spotOf(p.model, p.model.team) });
   }
   function finishPens(room, forfeitTeam = null) {
     if (room.state === 'over') return;
@@ -1004,9 +963,9 @@ function createGame({ getUser, userName, saveDB, onlineRecord, isNameTaken, worl
     if (room.state !== 'playing') return;
     if (p.phase === 'input') {
       const { shooter } = penRoles(room);
-      if (!shooter.human && now >= p.botShotAt) { p.pending.shot = penBotShot(p); penRunup(room, PEN_BOT_RUN_MS, now); }
-      // the clock ran out: a soft one down the middle, taken for them
-      else if (now >= p.deadline) { if (!p.pending.shot) p.pending.shot = { ax: 0, az: 0.42, power: 0.58 }; penRunup(room, PEN_RUN_MS, now); }
+      if (!shooter.human && now >= p.botShotAt) { p.pending.shot = penBotShot(); penRunup(room, PEN_BOT_RUN_MS, now); }
+      // the clock ran out: a hurried one, taken for them
+      else if (now >= p.deadline) { if (!p.pending.shot) p.pending.shot = { rel: 0.5 }; penRunup(room, PEN_RUN_MS, now); }
     } else if (p.phase === 'runup' && now >= p.kickAt) penKick(room, now);
     else if (p.phase === 'flight' && now >= p.flightEnd) penSettle(room, now);
     else if (p.phase === 'result' && now >= p.nextAt) penBeginTurn(room, now);
@@ -1405,7 +1364,7 @@ function createGame({ getUser, userName, saveDB, onlineRecord, isNameTaken, worl
     if (room.viewers) for (const v of room.viewers.keys()) if (heard(v)) push(v, msg);
   }
   // what a fill-in's line feels like, for the emote it sometimes uses instead
-  const LINE_MOOD = { "LET'S GO!": 'joy', 'WOW!': 'joy', 'NICE ONE!': 'joy', 'WHAT A GOAL!': 'joy', 'THANKS!': 'joy', 'UNLUCKY': 'sad', 'DEFEND!': 'sad', 'SORRY!': 'sad', 'HI!': 'hi', 'GG': 'gg' };
+  const LINE_MOOD = { "LET'S GO!": 'joy', 'WOW!': 'joy', 'NICE ONE!': 'joy', 'WHAT A SHOT!': 'joy', 'THANKS!': 'joy', 'UNLUCKY': 'sad', 'DEFEND!': 'sad', 'SORRY!': 'sad', 'HI!': 'hi', 'GG': 'gg' };
   const EMOTES_BY_MOOD = {};
   for (const e of sim.EMOTES) (EMOTES_BY_MOOD[e.mood] = EMOTES_BY_MOOD[e.mood] || []).push(e.id);
   function roomChat(room, player, n, from) {
@@ -1435,7 +1394,7 @@ function createGame({ getUser, userName, saveDB, onlineRecord, isNameTaken, worl
     const scorer = room.seats.find((s) => s.player === g.scorer);
     const mates = bots.filter((s) => s.team === g.team), others = bots.filter((s) => s.team !== g.team);
     if (scorer && !scorer.human && !g.own && Math.random() < 0.5) botSay(room, g.scorer, ["LET'S GO!", "LET'S GO!", 'WOW!'], 900 + Math.random() * 1500);
-    else if (mates.length && Math.random() < 0.75) botSay(room, pickOne(mates).player, scorer && scorer.human ? ['NICE ONE!', 'WHAT A GOAL!', 'NICE ONE!', 'WOW!'] : ['NICE ONE!', "LET'S GO!"], 1000 + Math.random() * 1800);
+    else if (mates.length && Math.random() < 0.75) botSay(room, pickOne(mates).player, scorer && scorer.human ? ['NICE ONE!', 'WHAT A SHOT!', 'NICE ONE!', 'WOW!'] : ['NICE ONE!', "LET'S GO!"], 1000 + Math.random() * 1800);
     else if (others.length) botSay(room, pickOne(others).player, ['UNLUCKY', 'DEFEND!', 'WOW!'], 1200 + Math.random() * 1800);
   }
   function botAnswer(room, seat, n) {
@@ -1443,7 +1402,7 @@ function createGame({ getUser, userName, saveDB, onlineRecord, isNameTaken, worl
     if (!bots.length) return;
     const delay = 800 + Math.random() * 1600;
     if ((said === 'HI!' || said === 'GG') && Math.random() < 0.45) botSay(room, pickOne(bots).player, [said], delay);
-    else if (said === 'NICE ONE!' || said === 'WHAT A GOAL!') {
+    else if (said === 'NICE ONE!' || said === 'WHAT A SHOT!') {
       const g = room.m.goals[room.m.goals.length - 1], scorer = g && bots.find((s) => s.player === g.scorer && s.team === seat.team);
       if (scorer && Date.now() - (room.lastGoalAt || 0) < 12000 && Math.random() < 0.55) botSay(room, scorer.player, ['THANKS!'], delay);
     } else if (said === 'SORRY!') {
@@ -1531,20 +1490,26 @@ function createGame({ getUser, userName, saveDB, onlineRecord, isNameTaken, worl
         r100(p.kickT), r100(p.kickDur), r100(p.stunT), r100(p.recoverT), r100(p.diveT), Math.sign(p.diveDir || 0), r100(p.celebrateT),
         celebIndex(p.celebKind), r100(p.slideT), r100(p.slideWindT || 0),
         r100(winding ? p.slideWindX : p.slideDirX), r100(winding ? p.slideWindY : p.slideDirY), r100(p.fallT), r100(p.hopT),
-        (p.ultOn ? 1 : 0) | (p.ultShot ? 2 : 0), p.ultShot ? Math.max(0, ULTS.indexOf(p.ultShot.kind)) : 0, r100(p.ultShot ? p.ultShot.t : 0)];
+        (p.ultOn ? 1 : 0) | (p.ultShot ? 2 : 0), p.ultShot ? Math.max(0, ULTS.indexOf(p.ultShot.kind)) : 0, r100(p.ultShot ? p.ultShot.t : 0),
+        // basketball: up in the air, the shot's follow-through, a block, a dunk (1) or layup (2) and how far into it, the dribble
+        Math.round(p.z || 0), Math.round(p.vz || 0), r100(p.shootT || 0), r100(p.blockT || 0),
+        p.dunk ? (p.dunk.kind === 'dunk' ? 1 : 2) : 0, r100(p.dunk ? p.dunk.t : 0), r100(p.dunk ? p.dunk.dur : 0), r100(p.dunk ? p.dunk.top : 0),
+        r100((p.dribble || 0) % 6.2832)];
     });
     const s = b.shot;
     const B = [Math.round(b.x), Math.round(b.y), Math.round(b.z), Math.round(b.vx), Math.round(b.vy), Math.round(b.vz),
       b.owner ? m.players.indexOf(b.owner) : -1, Math.max(0, TRAIL_TYPES.indexOf(b.trailType)),
-      s ? s.level : -1, s && s.power ? 1 : 0, s && s.team === 'red' ? 1 : 0, r100(b.netBulge.left), r100(b.netBulge.right)];
+      s ? s.level : -1, s && s.power ? 1 : 0, s && s.team === 'red' ? 1 : 0, r100(b.netBulge.left), r100(b.netBulge.right),
+      r100(b.rim ? b.rim.left : 0), r100(b.rim ? b.rim.right : 0)];
     const common = {
       k: room.tick, ph: PHASES.indexOf(m.phase), pt: r100(m.phaseT), tm: Math.round(m.time * 10), ot: m.overtime ? Math.round(m.otTime) : -1,
       sc: [m.score.blue, m.score.red], mt: [Math.round(m.meter.blue), Math.round(m.meter.red)], ts: r100(m.timeScale), p: P, b: B, ev: room.events.splice(0),
+      sh: m.rules && m.shotClock !== undefined ? Math.round(m.shotClock * 10) : -1,   // PRO MATCH: the shot clock
     };
     // PRO MATCH: a throw-in, corner or goal kick being set up: what, whose, who takes it, the spot,
     // the aim, and how long it has been waiting
     const R = m.restart;
-    if (R) common.rs = [RESTART_KINDS.indexOf(R.kind), R.team === 'red' ? 1 : 0, m.players.indexOf(R.taker), Math.round(R.bx), Math.round(R.by), r100(R.ax), r100(R.ay), r100(R.t)];
+    if (R) common.rs = [RESTART_KINDS.indexOf(R.kind), R.team === 'red' ? 1 : 0, m.players.indexOf(R.taker), Math.round(R.bx), Math.round(R.by), r100(R.ax), r100(R.ay), r100(R.t), R.n || 0, R.left || 0, R.fly ? 1 : 0, R.base ? 1 : 0];
     const body = JSON.stringify(common).slice(1);
     const nowMs = Date.now();
     for (const seat of room.seats) {

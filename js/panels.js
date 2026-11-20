@@ -16,12 +16,12 @@ Object.assign(UI, {
     const cup = Cup.state();
     const quickClub = Clubs.random(Clubs.mine());
     const pensClub = Clubs.random(Clubs.mine());
-    const fmt = Save.data.format || '4v4';
+    const fmt = Save.data.format || '3v3';
     const club = Clubs.mine(), clubs = Clubs.clubMode();
     const cupKind = clubs ? 'cc' : 'wc', wcRound = Online.cupRound(cupKind);
     body.innerHTML = `
       ${this.arenaSwitch()}
-      <div class="formats"><span>${tl('FORMAT')}</span>${['1v1', '2v2', '3v3', '4v4'].map((f) => `<button data-format="${f}" class="${f === fmt ? 'sel' : ''}">${f}</button>`).join('')}</div>
+      <div class="formats"><span>${tl('FORMAT')}</span>${['1v1', '2v2', '3v3'].map((f) => `<button data-format="${f}" class="${f === fmt ? 'sel' : ''}">${f}</button>`).join('')}</div>
       <div class="play-top">
         <button class="mode quick" data-mode="quick">
           <strong>${tl('QUICK MATCH')}</strong>
@@ -30,7 +30,7 @@ Object.assign(UI, {
         </button>
         <button class="mode online" data-needs-net data-mode="online">
           <strong>${tl('PLAY ONLINE')}</strong>
-          <p>${clubs ? tl('Real people from every country. Every goal and assist for {0} pays your wages.', [club.name]) : tl('Real people from every country. A win moves {0} up the league.', [club.name])}</p>
+          <p>${clubs ? tl('Real people from every country. Every point and assist for {0} pays your wages.', [club.name]) : tl('Real people from every country. A win moves {0} up the league.', [club.name])}</p>
           <span class="tag">${tl('ONLINE')}</span>
         </button>
         <div class="room-box">
@@ -43,8 +43,8 @@ Object.assign(UI, {
       <div class="play-more">
         <button class="mode pro" data-mode="pro">
           <strong>${tl('PRO MATCH')}</strong>
-          <p>${tl('A bigger pitch with the real rules: the ball can go out for throw-ins, corners and goal kicks.')}</p>
-          <span class="tag">${tl('2V2 TO 4V4 · THROW-INS · CORNERS')}</span>
+          <p>${tl('The real rules: a 12-second shot clock, out of bounds, and fouls that give free throws.')}</p>
+          <span class="tag">${tl('2V2 AND 3V3 · SHOT CLOCK · FOULS')}</span>
         </button>
         <button class="mode ranked" data-needs-net data-mode="ranked">
           <strong>${tl('RANKED')}</strong>
@@ -57,12 +57,12 @@ Object.assign(UI, {
           <span class="tag">${tl('ONLINE: {0} · BOTS: {1}', [WC_ROUNDS[wcRound], cup ? Cup.ROUNDS[cup.round] : tl('NEW CUP')])}</span>
         </button>
         <button class="mode pens" data-mode="pens">
-          <strong>${tl('PENALTY SHOOTOUT')}</strong>
-          <p>${tl('Five kicks each, then sudden death. Pick your corner, then save theirs.')}</p>
+          <strong>${tl('3-POINT CONTEST')}</strong>
+          <p>${tl('Five shots each from round the arc, then sudden death. Let go at the top of the meter.')}</p>
           <span class="tag">${tl('VS {0}', [pensClub.name])}</span>
         </button>
         <button class="mode fk" data-mode="fk">
-          <strong>${tl('FREE KICKS')}</strong>
+          <strong>${tl('FREE THROWS')}</strong>
           <p>${tl('Bend it over the wall or round it. Five each, then sudden death.')}</p>
           <span class="tag">${tl('VS {0} · OR ONLINE', [pensClub.name])}</span>
         </button>
@@ -73,12 +73,12 @@ Object.assign(UI, {
         </button>
         <button class="mode chal" data-mode="challenges">
           <strong>${tl('SKILL CHALLENGES')}</strong>
-          <p>${tl('Target practice, keeper mode and a dribble gauntlet.')}</p>
+          <p>${tl('Shooting drills, a dunk run and a dribble gauntlet.')}</p>
           <span class="tag">${tl('3 TESTS')}</span>
         </button>
         <button class="mode training" data-mode="training">
           <strong>${tl('TRAINING')}</strong>
-          <p>${tl('No clock, no pressure. Practise shots, skills and tackles.')}</p>
+          <p>${tl('No clock, no pressure. Practise shots, skills and steals.')}</p>
           <span class="tag">${tl('NO CLOCK')}</span>
         </button>
       </div>
@@ -101,7 +101,7 @@ Object.assign(UI, {
       body.querySelectorAll('[data-format]').forEach((x) => x.classList.toggle('sel', x === b));
     }));
     body.querySelector('[data-mode="quick"]').addEventListener('click', () => { this.tap(); Game.startMatch({ mode: 'quick', club: quickClub }); });
-    const fmtNow = () => Save.data.format || '4v4';
+    const fmtNow = () => Save.data.format || '3v3';
     body.querySelector('[data-mode="online"]').addEventListener('click', () => { this.tap(); Online.findMatch(fmtNow()); });
     body.querySelector('[data-room="create"]').addEventListener('click', () => { this.tap(); Online.createRoom(fmtNow()); });
     const join = () => { const code = body.querySelector('#join-code').value.trim().toUpperCase(); if (code.length < 4) { UI.toast(tl('ENTER THE ROOM CODE')); return; } this.tap(); Online.joinRoom(code); };
@@ -120,19 +120,19 @@ Object.assign(UI, {
 
   // ---- PENALTY SHOOTOUT: choose local or online without leaving the game UI ----
   panel_pensmode(body) {
-    $('modal-title').textContent = tl('PENALTY SHOOTOUT');
+    $('modal-title').textContent = tl('3-POINT CONTEST');
     const club = this._pensClub || Clubs.random(Clubs.mine());
     body.innerHTML = `
       <div class="modes pen-choice">
         <button class="mode pens" data-pens="offline">
           <strong>${tl('OFFLINE')}</strong>
-          <p>${tl('Play five kicks each against a computer-controlled opponent.')}</p>
+          <p>${tl('Five shots each against a computer-controlled opponent.')}</p>
           <span class="tag">${tl('VS {0}', [club.name])}</span>
         </button>
         <button class="mode online" data-pens="online">
           <strong>${tl('ONLINE')}</strong>
-          <p>${tl('Kick for kick against a real opponent, live.')}</p>
-          <span class="tag">${tl('ONLINE PENALTIES')}</span>
+          <p>${tl('Shot for shot against a real opponent, live.')}</p>
+          <span class="tag">${tl('ONLINE 3-POINT CONTEST')}</span>
         </button>
       </div>`;
     body.querySelector('[data-pens="offline"]').addEventListener('click', () => { this.tap(); Game.startMatch({ mode: 'pens', club }); });
@@ -140,15 +140,15 @@ Object.assign(UI, {
   },
 
   // ---- PRO MATCH: the bigger pitch with throw-ins, corners and goal kicks, offline or online ----
-  // 2v2 to 4v4 only (with 1v1 picked on the PLAY screen it starts on 2v2 here, and says so).
+  // 2v2 and 3v3 only (with 1v1 picked on the PLAY screen it starts on 2v2 here, and says so).
   panel_promode(body) {
     $('modal-title').textContent = tl('PRO MATCH');
-    const saved = Save.data.format || '4v4', clubs = Clubs.clubMode(), club = Clubs.mine();
-    let fmt = ['2v2', '3v3', '4v4'].includes(saved) ? saved : '2v2';
+    const saved = Save.data.format || '3v3', clubs = Clubs.clubMode(), club = Clubs.mine();
+    let fmt = ['2v2', '3v3'].includes(saved) ? saved : '2v2';
     const opp = Clubs.random(club);
     body.innerHTML = `
-      <p class="note">${tl('A bigger pitch with the real rules: the ball can go out for throw-ins, corners and goal kicks.')}</p>
-      <div class="formats"><span>${tl('FORMAT')}</span>${['2v2', '3v3', '4v4'].map((f) => `<button data-pf="${f}" class="${f === fmt ? 'sel' : ''}">${f}</button>`).join('')}</div>
+      <p class="note">${tl('The real rules: a 12-second shot clock, out of bounds, and fouls that give free throws.')}</p>
+      <div class="formats"><span>${tl('FORMAT')}</span>${['2v2', '3v3'].map((f) => `<button data-pf="${f}" class="${f === fmt ? 'sel' : ''}">${f}</button>`).join('')}</div>
       ${saved === '1v1' ? `<p class="note pro-note">${tl('PRO MATCH IS 2V2 OR BIGGER')}</p>` : ''}
       <div class="modes pen-choice">
         <button class="mode pro" data-pro="offline">
@@ -158,7 +158,7 @@ Object.assign(UI, {
         </button>
         <button class="mode online" data-needs-net data-pro="online">
           <strong>${tl('ONLINE')}</strong>
-          <p>${clubs ? tl('Real people from every country. Every goal and assist for {0} pays your wages.', [club.name]) : tl('Real people from every country. A win moves {0} up the league.', [club.name])}</p>
+          <p>${clubs ? tl('Real people from every country. Every point and assist for {0} pays your wages.', [club.name]) : tl('Real people from every country. A win moves {0} up the league.', [club.name])}</p>
           <span class="tag">${tl('ONLINE')}</span>
         </button>
       </div>`;
@@ -173,19 +173,19 @@ Object.assign(UI, {
 
   // ---- FREE KICKS: the same choice, for a free-kick shootout ----
   panel_fkmode(body) {
-    $('modal-title').textContent = tl('FREE KICKS');
+    $('modal-title').textContent = tl('FREE THROWS');
     const club = this._pensClub || Clubs.random(Clubs.mine());
     body.innerHTML = `
       <div class="modes pen-choice">
         <button class="mode pens fk" data-fk="offline">
           <strong>${tl('OFFLINE')}</strong>
-          <p>${tl('Five free kicks each against a computer-controlled opponent. Soft and high goes over the wall; hard goes round it.')}</p>
+          <p>${tl('Five free throws each against a computer-controlled opponent. It is all in the release.')}</p>
           <span class="tag">${tl('VS {0}', [club.name])}</span>
         </button>
         <button class="mode online" data-fk="online">
           <strong>${tl('ONLINE')}</strong>
-          <p>${tl('Free kick for free kick against a real opponent, live.')}</p>
-          <span class="tag">${tl('ONLINE FREE KICKS')}</span>
+          <p>${tl('Free throw for free throw against a real opponent, live.')}</p>
+          <span class="tag">${tl('ONLINE FREE THROWS')}</span>
         </button>
       </div>`;
     body.querySelector('[data-fk="offline"]').addEventListener('click', () => { this.tap(); Game.startMatch({ mode: 'pens', fk: true, club }); });
@@ -199,7 +199,7 @@ Object.assign(UI, {
     if (!Net.user) { body.innerHTML = `<p class="note">${tl('Log in to run a cup with your friends.')}</p>`; return; }
     if (!c) {
       body.innerHTML = `
-        <p class="note">${tl('A knockout between your friends. Everyone plays 1v1, the winner of each tie goes through, and the last one standing lifts the cup. No draws: golden goal decides it.')}</p>
+        <p class="note">${tl('A knockout between your friends. Everyone plays 1v1, the winner of each tie goes through, and the last one standing lifts the cup. No draws: the next basket decides it.')}</p>
         <div class="cup-pick"><button class="big-btn" data-size="4">${tl('4 PLAYERS')}</button><button class="big-btn" data-size="8">${tl('8 PLAYERS')}</button></div>
         <p class="note">${tl('You pick the size, then invite friends who are online. The draw is random.')}</p>`;
       body.querySelectorAll('[data-size]').forEach((b) => b.addEventListener('click', () => { this.tap(); Net.send({ t: 'cup.create', size: Number(b.dataset.size) }); }));
@@ -311,7 +311,7 @@ Object.assign(UI, {
     // the World Cup for your country, the Champions Cup for your club: the same two cups
     const champs = Cup.champions(), kind = champs ? 'cc' : 'wc';
     $('modal-title').textContent = Cup.name();
-    const fmt = Save.data.format || '4v4';
+    const fmt = Save.data.format || '3v3';
     const flagCell = (id) => { const c = Clubs.get(id); return `<span><canvas width="42" height="${c.euro ? 42 : 28}" data-flag="${c.id}"${c.euro ? ' class="crest"' : ''}></canvas>${c.short}</span>`; };
     // online: the round you're in comes from the server; this run's results from your last matches
     const round = Online.cupRound(kind), rec = Net.user && Net.user[kind], titles = (rec && rec.titles) || 0;
@@ -330,7 +330,7 @@ Object.assign(UI, {
       return `<li class="${cls}"><small>${name}</small>${cup ? flagCell(cup.opponents[i]) : '<span>?</span>'}<em>${res ? `${res.blue}-${res.red}` : ''}</em></li>`;
     }).join('');
     body.innerHTML = `
-      <div class="formats"><span>${tl('FORMAT')}</span>${['1v1', '2v2', '3v3', '4v4'].map((f) => `<button data-format="${f}" class="${f === fmt ? 'sel' : ''}">${f}</button>`).join('')}</div>
+      <div class="formats"><span>${tl('FORMAT')}</span>${['1v1', '2v2', '3v3'].map((f) => `<button data-format="${f}" class="${f === fmt ? 'sel' : ''}">${f}</button>`).join('')}</div>
       <div class="wc-panels">
         <section class="wc-panel online">
           <header><strong>${tl('ONLINE')}</strong><small>${tl('Against real players from every country, round of 16 to the final.')}</small></header>
@@ -343,13 +343,13 @@ Object.assign(UI, {
           <div class="wc-foot"><span class="tag">${tl('WIN IT: +{0} COINS', [Cup.prize()])}${(champs ? Career.state().titles : Save.data.trophies) ? ' · ' + tl('WON {0}', [champs ? Career.state().titles : Save.data.trophies]) : ''}</span><button class="mid-btn" data-cup="bots">${cup ? tl('PLAY {0}', [Cup.ROUNDS[cup.round]]) : tl('START CUP')}</button></div>
         </section>
       </div>
-      <p class="note" style="margin-top:12px">${tl('No draws in either cup: level at full time goes to golden goal. Lose once and you\'re out. Win it and lift the trophy.')}</p>`;
+      <p class="note" style="margin-top:12px">${tl('No draws in either cup: level at the buzzer goes to overtime, and the next basket wins it. Lose once and you\'re out. Win it and lift the trophy.')}</p>`;
     body.querySelectorAll('canvas[data-flag]').forEach((cv) => this.flagBadge(cv, Clubs.get(cv.dataset.flag)));
     body.querySelectorAll('[data-format]').forEach((b) => b.addEventListener('click', () => {
       Save.data.format = b.dataset.format; Save.write(); this.tap();
       body.querySelectorAll('[data-format]').forEach((x) => x.classList.toggle('sel', x === b));
     }));
-    body.querySelector('[data-cup="online"]').addEventListener('click', () => { this.tap(); Online.findMatch(Save.data.format || '4v4', kind); });
+    body.querySelector('[data-cup="online"]').addEventListener('click', () => { this.tap(); Online.findMatch(Save.data.format || '3v3', kind); });
     body.querySelector('[data-cup="bots"]').addEventListener('click', () => {
       this.tap();
       if (!Cup.state()) Cup.start();
@@ -663,7 +663,7 @@ Object.assign(UI, {
     const note = (t) => `<p class="note">${t}</p>`;
     const st = Store.status;
     let inner;
-    if (!Store.kind) inner = note(tl('Coin packs are sold in the Mini Strikers app, from the App Store or Google Play.'));
+    if (!Store.kind) inner = note(tl('Coin packs are sold in the Mini Dunkers app, from the App Store or Google Play.'));
     else if (!Net.token) inner = note(tl('Sign in to buy coins, so they follow your account to any device.')) + `<div class="coins-go"><button class="mid-btn" id="coins-signin">${tl('SIGN IN')}</button></div>`;
     else if (Net.offline) inner = note(tl('Buying needs a connection. Come back when you are online.'));
     else if (Store.sel) {
@@ -981,7 +981,7 @@ Object.assign(UI, {
     ball: tl('The match ball in every game you play.'),
     accessory: tl('Wear as many as you like, all at once: tap one to put it on, tap it again to take it off. Online, everyone sees them.'),
     celebration: tl('Score and the camera zooms in on you doing this. Everyone in the match sees it.'),
-    trail: tl('Shown on power shots. Fill the meter around SHOOT, then fully charge.'),
+    trail: tl('Shown on power shots. Fill the power meter, then let go in the green.'),
     emote: tl('Pick up to 8 for your match menu: in a match, open the quick chat and tap one, and everyone in the match sees it. More come out of crates and the daily emote shop.'),
   },
 
@@ -1440,17 +1440,17 @@ Object.assign(UI, {
       <div><h3>${tl('PC')}</h3><ul>
         <li>${tl('{0} move (arrows work too)', [k(tl('WASD'), 1)])}</li>
         <li>${tl('{0} hold to sprint', [k(tl('SHIFT'), 1)])}</li>
-        <li>${tl('{0} hold to charge, release to shoot', [k(tl('SPACE'), 1)])}</li>
-        <li>${tl('{0} pass &nbsp; {1} skill &nbsp; {2} tackle', [k('E'), k('Q'), k('F')])}</li>
+        <li>${tl('{0} hold, let go in the green to shoot', [k(tl('SPACE'), 1)])}</li>
+        <li>${tl('{0} pass &nbsp; {1} skill &nbsp; {2} steal', [k('E'), k('Q'), k('F')])}</li>
         <li>${tl('{0} shoot &nbsp; {1} pass &nbsp; {2} skill', [k(tl('LMB'), 1), k(tl('RMB'), 1), k(tl('MMB'), 1)])}</li>
         <li>${tl('{0} pause', [k(tl('ESC'), 1)])}</li>
       </ul></div>
-      <div><h3>${tl('SKILLS &amp; TACKLES')}</h3><ul>
-        <li>${tl('Skill + no direction: HOP (jumps tackles)')}</li>
-        <li>${tl('Skill + forward: nutmeg / flick / burst')}</li>
-        <li>${tl('Skill + sideways: SPIN · backward: CRUYFF')}</li>
-        <li>${tl('Any skill makes tackles miss for a moment')}</li>
-        <li>${tl('TACKLE near the carrier to lunge and steal it')}</li>
+      <div><h3>${tl('SKILLS &amp; STEALS')}</h3><ul>
+        <li>${tl('Skill + no direction: HESITATION')}</li>
+        <li>${tl('Skill + forward: BURST · sideways: CROSSOVER · back: STEPBACK')}</li>
+        <li>${tl('Skill with someone right on you: a SPIN')}</li>
+        <li>${tl('Any skill makes steals miss for a moment')}</li>
+        <li>${tl('STEAL near the dribbler to poke it away · SHOOT without the ball jumps to block')}</li>
         <li>${tl('Sprint drains stamina — empty means wait')}</li>
         <li>${tl('Phone: tap SPRINT to keep sprinting, tap again to stop')}</li>
       </ul></div>
@@ -1477,7 +1477,7 @@ Object.assign(UI, {
         <div class="lg-side">
           <button class="mid-btn lg-board" data-board>${tl('PLAYER LEADERBOARD')}</button>
           <h3>${tl('TOP SCORERS')}</h3>
-          ${r.scorers.length ? `<ol class="lg-scorers">${r.scorers.map((s) => `<li><canvas width="42" height="28" data-club="${s.club}"></canvas><b>${s.name}</b><em>${s.goals}</em></li>`).join('')}</ol>` : `<p class="note">${tl('No online goals yet. Be the first.')}</p>`}
+          ${r.scorers.length ? `<ol class="lg-scorers">${r.scorers.map((s) => `<li><canvas width="42" height="28" data-club="${s.club}"></canvas><b>${s.name}</b><em>${s.goals}</em></li>`).join('')}</ol>` : `<p class="note">${tl('No online points yet. Be the first.')}</p>`}
         </div>
       </div>`;
     body.querySelectorAll('canvas[data-club]').forEach((cv) => this.flagBadge(cv, Clubs.get(cv.dataset.club)));
@@ -1491,8 +1491,8 @@ Object.assign(UI, {
     $('modal-title').textContent = tl('PROFILE');
     const d = Save.data, c = d.career, ch = Save.character(), lv = Levels.info(d.xp || 0);
     const winPct = d.matches ? Math.round((d.wins / d.matches) * 100) : 0;
-    const stats = [[tl('MATCHES'), d.matches], [tl('WINS'), d.wins], [tl('GOALS'), d.goals], [tl('ASSISTS'), c.assists], [tl('TACKLES'), c.tackles], [tl('SKILLS'), c.skills],
-      [tl('DODGES'), c.dodges], [tl('POWER GOALS'), c.powerGoals], [tl('HAT-TRICKS'), c.hattricks], [tl('CLEAN SHEETS'), c.cleanSheets], [tl('BEST STREAK'), c.bestStreak], [tl('ONLINE WINS'), c.onlineWins || 0]];
+    const stats = [[tl('MATCHES'), d.matches], [tl('WINS'), d.wins], [tl('POINTS'), d.goals], [tl('ASSISTS'), c.assists], [tl('STEALS'), c.tackles], [tl('SKILLS'), c.skills],
+      [tl('DODGES'), c.dodges], [tl('POWER SHOTS'), c.powerGoals], [tl('15-POINT GAMES'), c.hattricks], [tl('LOCKDOWNS'), c.cleanSheets], [tl('BEST STREAK'), c.bestStreak], [tl('ONLINE WINS'), c.onlineWins || 0]];
     const rank = (a) => (Achievements.ready(a) ? 0 : Achievements.claimed(a) ? 2 : 1);
     const list = ACHIEVEMENTS.slice().sort((a, b) => rank(a) - rank(b) || Achievements.progress(b) / b.goal - Achievements.progress(a) / a.goal);
     const done = ACHIEVEMENTS.filter((a) => Achievements.claimed(a)).length;

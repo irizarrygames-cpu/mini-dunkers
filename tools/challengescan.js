@@ -39,7 +39,7 @@ assert.equal(ws.bob.last('start').side, 'red');
 send('ann', {t:'challenge.send', name:'BOB'});
 assert.equal(ws.ann.last('social').ok, false, 'cannot challenge during match');
 
-// build 116: the challenger picks what it is — a 1v1, penalties, free kicks or a PRO MATCH (2v2, a
+// the challenger picks what it is — a 1v1, a 3-point contest, free throws or a PRO MATCH (2v2, a
 // fill-in each); never a cup. A game too old for PRO MATCH is never put in one. PLAY AGAIN at the
 // end is a rematch with the same friend at the same thing.
 (async () => {
@@ -55,13 +55,13 @@ assert.equal(ws.ann.last('social').ok, false, 'cannot challenge during match');
     return { inv, sent, accepted: ws[b].last('social') };
   };
   const p = play('dan', 'eve', 'pens');
-  assert.equal(p.inv.mode, 'pens', 'the invite says penalties');
-  assert(/penalties/.test(p.sent.msg), 'the challenger is told: penalties');
-  assert.equal(ws.dan.last('pen.start').kind, 'pens', 'a penalty shootout starts');
+  assert.equal(p.inv.mode, 'pens', 'the invite says the 3-point contest');
+  assert(/3-point contest/.test(p.sent.msg), 'the challenger is told: a 3-point contest');
+  assert.equal(ws.dan.last('pen.start').kind, 'pens', 'a 3-point contest starts');
   assert.equal(ws.eve.last('pen.start').kind, 'pens');
   const f = play('fay', 'gus', 'fk');
   assert.equal(f.inv.mode, 'fk');
-  assert.equal(ws.fay.last('pen.start').kind, 'fk', 'a free-kick shootout starts');
+  assert.equal(ws.fay.last('pen.start').kind, 'fk', 'a free-throw contest starts');
   const pr = play('hal', 'ivy', 'pro');
   assert.equal(pr.inv.mode, 'pro');
   const st = ws.hal.last('start');
@@ -89,6 +89,6 @@ assert.equal(ws.ann.last('social').ok, false, 'cannot challenge during match');
   // a match out of the queue has none
   const q = game._roomOf('hal');
   assert(!q.challenge || q.challenge.mode === 'pro', 'only a challenge room carries one');
-  console.log('challenge scan passed (1v1, penalties, free kicks, PRO MATCH, older games, rematch)');
+  console.log('challenge scan passed (1v1, 3-point contest, free throws, PRO MATCH, older games, rematch)');
   process.exit(0);
 })();

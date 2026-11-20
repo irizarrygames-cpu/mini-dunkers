@@ -280,7 +280,7 @@ const Crests = {
         break;
       }
       case 'cockerel': {
-        // a cockerel standing on a ball
+        // a cockerel standing on a basketball
         fs(P('M64 72 C46 74 32 64 30 50 C28 42 32 34 38 30 L34 22 C34 16 40 12 46 16 L48 10 L52 16 L56 12 L56 20 C60 24 60 30 56 34 C60 42 66 46 72 46 C78 34 84 28 90 24 C92 40 90 54 82 62 C78 68 72 72 64 72 Z'), col);
         fs(P('M38 16 L40 6 L45 12 L49 4 L52 12 L57 8 L55 19 Z'), '#ff3a3f');
         fs(P('M34 25 L23 29 L34 31 Z'), '#ff8a1f');
@@ -288,8 +288,8 @@ const Crests = {
         dot(40, 23, 2.6, ink);
         line('M78 34 C80 44 80 52 76 58 M84 32 C88 42 86 52 82 58', L * 0.8, dark);
         line('M50 72 L48 78 M58 72 L60 78', L, ink);
-        ring(54, 87, 10, '#ffffff');
-        fs(P('M50 84 L54 81 L58 84 L57 89 L51 89 Z'), ink);
+        ring(54, 87, 10, '#f07a1f');
+        line('M44 87 L64 87 M54 77 L54 97', L * 0.5, ink);
         break;
       }
       case 'castle': {
@@ -399,11 +399,11 @@ const Crests = {
         break;
       }
       case 'ball': {
-        ring(50, 50, 42, '#ffffff');
+        // a basketball: orange, its seams in ink
+        ring(50, 50, 42, '#f07a1f');
         g.save(); g.beginPath(); g.arc(50, 50, 42, 0, Math.PI * 2); g.clip();
-        const pent = (cx, cy, r, rot) => { g.beginPath(); for (let i = 0; i < 5; i++) { const a = rot + (i * Math.PI * 2) / 5; g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); } g.closePath(); g.fillStyle = ink; g.fill(); };
-        pent(50, 50, 14, -Math.PI / 2);
-        for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + Math.PI / 5 + (i * Math.PI * 2) / 5; pent(50 + Math.cos(a) * 40, 50 + Math.sin(a) * 40, 12, a + Math.PI); line(`M${50 + Math.cos(a) * 14} ${50 + Math.sin(a) * 14} L${50 + Math.cos(a) * 30} ${50 + Math.sin(a) * 30}`, L * 0.6, ink); }
+        line('M8 50 L92 50 M50 8 L50 92', L * 0.7, ink);
+        line('M24 14 C40 32 40 68 24 86 M76 14 C60 32 60 68 76 86', L * 0.7, ink);
         g.restore();
         g.beginPath(); g.arc(50, 50, 42, 0, Math.PI * 2); g.lineWidth = L; g.strokeStyle = ink; g.stroke();
         break;

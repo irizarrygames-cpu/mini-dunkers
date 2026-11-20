@@ -131,7 +131,7 @@ async function part2() {
   const now = probe(PB, 22, true);
   console.log(`  (slow link: an old game is a median ${old.median} ms and at worst ${old.worst} ms behind; the new one ${now.median} and ${now.worst})`);
   check('on a link too slow for the stream, the picture stays close to live', now.median < 600 && now.p99 < 1500, now);
-  check('where an older game falls seconds behind (so this test can tell the difference)', old.median > 1500, old);
+  check('where an older game falls a second or more behind (so this test can tell the difference)', old.median > 800, old);
 
   const clean = probe(PA, 18, true);
   check('on a clean link the new game is exactly as good as it was', clean.snaps >= 380 && clean.p99 < 120, clean);

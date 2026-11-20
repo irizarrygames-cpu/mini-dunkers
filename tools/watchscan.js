@@ -158,7 +158,7 @@ async function waitFor(ws, t, after, ms = 6000) {
   const room2 = game._roomOf('w2a');
   while (room2.m.phase !== 'play') await sleep(30);
   n = socks.w2c.got.length;
-  say('w2c', { t: 'queue', format: '4v4' });
+  say('w2c', { t: 'queue', format: '3v3' });
   say('w2c', { t: 'watch', name: 'W2A' });
   await sleep(80);
   check('searching for a match blocks it', !socks.w2c.since(n, 'start').length && !!socks.w2c.since(n, 'error').length, socks.w2c.last('error'));

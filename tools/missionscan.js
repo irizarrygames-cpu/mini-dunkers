@@ -1,6 +1,6 @@
-// Missions (build 121): 219 jobs, three a day and one a week, without a browser.
+// Missions: 207 jobs, three a day and one a week, without a browser.
 //   node tools/missionscan.js
-// 1. the list: 184 daily and 35 weekly, every id and every line different, every kind and every
+// 1. the list: 172 daily and 35 weekly, every id and every line different, every kind and every
 //    "where" one the game can count, a number that reads right ("Win a match", "Win 3 matches"),
 //    pay in line with the old ones
 // 2. the deal, for five years of days: three a day, never two of the same kind, at most one that
@@ -37,9 +37,9 @@ const { MISSION_POOL, WEEKLY_POOL, MISSION_KINDS, MISSION_WHERE, MISSION_BUMPS, 
 console.log('the list');
 {
   const all = [...MISSION_POOL, ...WEEKLY_POOL];
-  check('184 daily jobs', MISSION_POOL.length === 184, MISSION_POOL.length);
+  check('172 daily jobs', MISSION_POOL.length === 172, MISSION_POOL.length);
   check('35 weekly jobs', WEEKLY_POOL.length === 35, WEEKLY_POOL.length);
-  check('200 of them new in build 121', all.filter((p) => /^[dw]-[a-z0-9-]*-\d+$/.test(p.id)).length === 200, all.filter((p) => /^[dw]-[a-z0-9-]*-\d+$/.test(p.id)).length);
+  check('188 of them with a numbered id', all.filter((p) => /^[dw]-[a-z0-9-]*-\d+$/.test(p.id)).length === 188, all.filter((p) => /^[dw]-[a-z0-9-]*-\d+$/.test(p.id)).length);
   check('every id different', new Set(all.map((p) => p.id)).size === all.length);
   const lines = all.map((p) => p.text.replace('{n}', p.n));
   check('every line different', new Set(lines).size === lines.length, lines.filter((l, i) => lines.indexOf(l) !== i));
@@ -129,8 +129,8 @@ console.log('counting');
   check('goals online', c('d-goals-online-3', S({ online: true, goals: 2 })) === 2 && c('d-goals-online-3', S({ goals: 2 })) === 0);
   check('HARD', c('d-win-hard-1', S({ won: true, hard: true })) === 1 && c('d-win-hard-1', S({ won: true })) === 0);
   check('a clean sheet is a win with nothing let in', c('clean1', S({ won: true, mine: 2, theirs: 0 })) === 1 && c('clean1', S({ won: false, mine: 0, theirs: 0 })) === 0);
-  check('win by 3', c('d-bigwin-1', S({ won: true, mine: 4, theirs: 1 })) === 1 && c('d-bigwin-1', S({ won: true, mine: 3, theirs: 1 })) === 0);
-  check('6 goals in a match', c('d-goalfest-1', S({ mine: 3, theirs: 3 })) === 1 && c('d-goalfest-1', S({ mine: 3, theirs: 2 })) === 0);
+  check('win by 8', c('d-bigwin-1', S({ won: true, mine: 20, theirs: 12 })) === 1 && c('d-bigwin-1', S({ won: true, mine: 19, theirs: 12 })) === 0);
+  check('40 points in a match', c('d-goalfest-1', S({ mine: 22, theirs: 18 })) === 1 && c('d-goalfest-1', S({ mine: 21, theirs: 18 })) === 0);
   check('cups', c('d-cupwin-1', S({ won: true, cup: true })) === 1 && c('w-cupchampion-1', S({ cupChampion: true })) === 1);
   check('away-from-the-pitch jobs never move on a match', c('d-crate-1', S({ won: true, goals: 9 })) === 0);
 
@@ -169,12 +169,12 @@ console.log('a save');
   check('today matches the deal', m.daily.map((j) => j.id).join() === Missions.dailyIds().join());
   // finish one by hand: a match that does a lot
   const big = { won: true, outcome: 'win', online: false, coop: false, ranked: false, pens: false, fk: false, format: '2v2', pro: false, cup: false, club: false, hard: false,
-    mine: 9, theirs: 0, goals: 9, assists: 9, tackles: 20, skills: 20, shots: 30, passes: 50, dodges: 9, steals: 15, saves: 15, powerGoals: 9, curlGoals: 9, nutmegs: 9, kicksScored: 0, kicksSaved: 0, cupChampion: false };
+    mine: 30, theirs: 0, goals: 30, assists: 9, tackles: 20, skills: 20, shots: 30, passes: 50, dodges: 9, steals: 15, saves: 15, powerGoals: 9, curlGoals: 9, nutmegs: 9, kicksScored: 0, kicksSaved: 0, cupChampion: false };
   // a day whose three are all match jobs anyone can do offline
   m.daily = [{ id: 'd-goals-3', n: 0, done: false }, { id: 'd-skills-5', n: 0, done: false }, { id: 'd-emote-3', n: 0, done: false }];
   const before = Save.data.coins;
   Missions.record(big);
-  check('one match finishes the jobs it covers, and no more than the number', m.daily[0].n === 3 && m.daily[1].n === 5 && m.daily[2].n === 0);
+  check('one match finishes the jobs it covers, and no more than the number', m.daily[0].n === 10 && m.daily[1].n === 5 && m.daily[2].n === 0);
   check('two ready to claim', Missions.ready() >= 2);
   const paid = Missions.claim('d-goals-3'), again = Missions.claim('d-goals-3');
   check('CLAIM pays the job, once', paid === Missions.def('d-goals-3').coins && again === 0 && Save.data.coins === before + paid);

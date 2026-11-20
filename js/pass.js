@@ -48,10 +48,10 @@ const PASS_PALETTES = [
 const PASS_EM_WHO = ['footy', 'kid', 'keeper', 'ref', 'coach', 'fan', 'goat', 'golden'];
 const PASS_EM_FACES = ['cool', 'star', 'laser', 'ninja', 'determined', 'proud', 'smug', 'grin', 'laugh', 'lol', 'wink', 'tongue', 'shout',
   'crazy', 'money', 'happy', 'sneaky', 'calm', 'sing', 'love', 'shock', 'cheeky', 'kiss'];
-// the props worth showing off (no tissues, traffic cones or popcorn in a season pass)
+// the props worth showing off (no tissues, traffic cones or popcorn in a season pass, and nothing only football has)
 const PASS_EM_PROPS = ['thumb', 'wave', 'fist', 'peace', 'point', 'fistbump', 'clap', 'juggle', 'header', 'scarf', 'drum', 'horn', 'medal',
-  'gloves', 'megaphone', 'flag', 'boot', 'sun', 'nutmeg', 'flagup', 'handup', 'hattrick', 'topcorner', 'rainbowball', 'chip', 'catch',
-  'crown', 'headphones', 'badge', 'goldboot', 'trophy', 'bicycle', 'rocket', 'cape', 'wizard', 'moon', 'chain', 'goldgloves', 'planet',
+  'megaphone', 'flag', 'boot', 'sun', 'nutmeg', 'handup', 'hattrick', 'topcorner', 'rainbowball', 'chip', 'catch',
+  'crown', 'headphones', 'badge', 'goldboot', 'trophy', 'rocket', 'cape', 'wizard', 'moon', 'chain', 'planet',
   'wings', 'firebreath', 'clock'];
 const PASS_EM_FX = ['sparkle', 'stars', 'rings', 'notes', 'fire', 'bigfire', 'bolt', 'bigbolt', 'flash', 'confetti', 'frost', 'disco',
   'aura', 'explode', 'spotlight', 'fireworks', 'cosmos', 'speed', 'coins', 'hearts', 'wind', 'snow'];

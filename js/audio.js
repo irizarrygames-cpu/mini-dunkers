@@ -99,6 +99,71 @@ const Sound = {
     if (!this.ok()) return;
     this.hiss(0.4, 'bandpass', 2200, 1.1, 0.7, 0, 380);
   },
+  // ---- basketball ----
+  // the dribble: a hollow thump on a wooden floor, softer when you walk it up
+  dribble(sp = 0.5) {
+    if (!this.ok()) return;
+    const now = this.ctx.currentTime;
+    if (now - (this._lastDribble || 0) < 0.12) return;
+    this._lastDribble = now;
+    this.tone('sine', 120, 62, 0.09, 0.3 + clamp(sp, 0, 1) * 0.2);
+    this.hiss(0.04, 'lowpass', 600, 0.7, 0.12);
+  },
+  // let go of a jump shot: a soft flick off the fingers
+  shoot(k = 0.5) {
+    if (!this.ok()) return;
+    this.hiss(0.08, 'bandpass', 1200, 1.2, 0.18 + k * 0.15, 0, 2600);
+    this.tone('sine', 300, 420, 0.06, 0.12);
+  },
+  // nothing but net
+  swish(k = 0.7) {
+    if (!this.ok()) return;
+    this.hiss(0.32, 'bandpass', 3400, 1.4, 0.35 + k * 0.3, 0, 1200, null, 0.01);
+    this.hiss(0.18, 'highpass', 5000, 0.7, 0.12 + k * 0.1, 0.05);
+  },
+  // off the iron: a ringing clank
+  rim(k = 0.7) {
+    if (!this.ok()) return;
+    this.tone('triangle', 820, 760, 0.38, 0.22 + k * 0.2);
+    this.tone('square', 1460, 1400, 0.16, 0.05 + k * 0.05);
+    this.hiss(0.05, 'highpass', 2600, 0.8, 0.25);
+  },
+  // off the glass: a flat smack
+  backboard() {
+    if (!this.ok()) return;
+    this.tone('square', 210, 120, 0.09, 0.14);
+    this.hiss(0.1, 'lowpass', 1400, 0.6, 0.35);
+  },
+  // a slam: the rim rattles and the stand shudders
+  dunk() {
+    if (!this.ok()) return;
+    this.tone('sine', 110, 40, 0.3, 1);
+    this.tone('triangle', 640, 560, 0.42, 0.3);
+    this.hiss(0.22, 'lowpass', 900, 0.6, 0.6);
+    this.hiss(0.3, 'bandpass', 3000, 1.2, 0.3, 0.04, 900);
+  },
+  // swatted away
+  block() {
+    if (!this.ok()) return;
+    this.tone('sine', 160, 50, 0.18, 0.9);
+    this.hiss(0.12, 'lowpass', 1300, 0.6, 0.5);
+    this.tone('square', 260, 140, 0.07, 0.08);
+  },
+  // caught: a quick slap of the ball into the hands
+  catchBall() {
+    if (!this.ok()) return;
+    const now = this.ctx.currentTime;
+    if (now - (this._lastCatch || 0) < 0.08) return;
+    this._lastCatch = now;
+    this.tone('sine', 260, 120, 0.05, 0.22);
+    this.hiss(0.03, 'bandpass', 1800, 1, 0.12);
+  },
+  // the end of the clock
+  buzzer() {
+    if (!this.ok()) return;
+    this.tone('sawtooth', 220, 220, 0.9, 0.22);
+    this.tone('square', 330, 330, 0.9, 0.08);
+  },
   tap() {
     if (!this.ctx || !this.enabled) return;
     this.tone('sine', 620, 900, 0.06, 0.3);

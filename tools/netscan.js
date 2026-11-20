@@ -72,7 +72,8 @@ for (let i = 0; i < N; i++) {
       if (!Number.isFinite(b.x + b.y + b.z)) add('nan-ball', where);
       if (b.x < -CFG.END_M - CFG.GOAL_D - 30 || b.x > W + CFG.END_M + CFG.GOAL_D + 30 || b.y < -CFG.SIDE_M - 30 || b.y > H + CFG.SIDE_M + 30) add('ball-outside', where);
       const total = m.score.blue + m.score.red;
-      if (total !== m.goals.length) add('score-mismatch', where);
+      // (a basket is worth its points: two, three, or one for an and-one style free throw)
+      if (total !== m.goals.reduce((n, g) => n + (g.pts || 1), 0)) add('score-mismatch', where);
       if (total > lastScore) { goals += total - lastScore; lastScore = total; if (!events.some((e) => e.e === 'goal')) add('goal-without-event', where); events.length = 0; }
       if (m.phase === 'play') { if (!b.owner && Math.hypot(b.vx, b.vy) < 5) looseT += 1 / 120; else looseT = 0; if (looseT > 8) { add('ball-dead', where); looseT = -999; } }
       for (const h of m.humans) if (!h.input) add('human-without-input', where);

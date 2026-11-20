@@ -8,7 +8,7 @@
 
 const NET_PHASES = ['kickoff', 'play', 'goal', 'reset', 'timeup', 'over', 'replay', 'cele', 'restart'];
 // PRO MATCH (build 116): what a restart is, in the order the server numbers them
-const NET_RESTARTS = ['throw', 'corner', 'goalkick'];
+const NET_RESTARTS = ['throw', 'ft'];   // PRO MATCH: an inbound, free throws (the server's RESTART_KINDS)
 const NET_CELEBS = [null, ...CELEBRATIONS.map((c) => c.id), 'hype'];
 // the four the game gives out itself, then every trail you can own, in the order they are listed
 const NET_TRAILS = [null, 'pass', 'weak', 'shot', 'strong', ...TRAILS.map((t) => t.id)];
@@ -121,7 +121,6 @@ const Online = {
     $('hud').classList.remove('replaying'); UI.show('match'); Game.state = 'intro'; UI.showIntro(m); Sound.startMusic(); Sound.startAmbience(); Sound.cheer(false);
     m.net = true; m.online = true; m.wc = msg.wc; m.roomId = msg.room; m.code = msg.code; m.mode = 'pens'; m.format = this.format;
     m.pens.net = true; m.pens.serverSide = msg.side; m.pens.phase = 'wait'; m.pens.t = 0;
-    if (fk) Pens.setWall(m.pens, (msg.state && msg.state.wall) || null);   // the server's wall, not one made up here
     m.pens.watch = !!msg.watch;
     m.pens.watchName = msg.watch || null;
     $('hud').classList.toggle('watching', !!msg.watch);
@@ -136,8 +135,8 @@ const Online = {
     m.pens.winner = won ? 'blue' : 'red';
     m.pens.kicks = this.penSide === 'blue' ? { blue: [...msg.kicks.blue], red: [...msg.kicks.red] } : { blue: [...msg.kicks.red], red: [...msg.kicks.blue] };
     m.score = this.penSide === 'blue' ? { ...msg.score } : { blue: msg.score.red, red: msg.score.blue };
-    const coins = 30 + m.score.blue * 10 + m.pens.saves * 8 + (won ? 70 : 0);
-    m.result = { outcome: msg.outcome, mvp: won ? m.human : m.keepers.red, coins, base: coins, challengeCoins: 0, cupBonus: 0, mult: 1 };
+    const coins = 30 + m.score.blue * 10 + m.pens.swishes.blue * 4 + (won ? 70 : 0);
+    m.result = { outcome: msg.outcome, mvp: won ? m.human : (m.players.find((p) => p.team === 'red') || m.human), coins, base: coins, challengeCoins: 0, cupBonus: 0, mult: 1 };
     m.phase = 'over'; m.onlinePenEnd = msg;
     setTimeout(() => { if (Game.match === m) UI.showResults(m); }, 900);
   },
@@ -258,32 +257,37 @@ const Online = {
       k: msg.k, at: now, phase: NET_PHASES[msg.ph] || 'play', phaseT: msg.pt / 100, time: msg.tm / 10, ot: msg.ot,
       score: this.mirror ? { blue: msg.sc[1], red: msg.sc[0] } : { blue: msg.sc[0], red: msg.sc[1] },
       meter: this.mirror ? { blue: msg.mt[1], red: msg.mt[0] } : { blue: msg.mt[0], red: msg.mt[1] },
-      ts: msg.ts / 100, me: msg.me, fired: false,
+      ts: msg.ts / 100, me: msg.me, fired: false, shotClock: Number.isFinite(msg.sh) && msg.sh >= 0 ? msg.sh / 10 : undefined,
       p: msg.p.map((r) => ({
         x: X(r[0]), y: r[1], vx: s * r[2], vy: r[3], fx: s * r[4] / 100, fy: r[5] / 100, faceX: s * r[6] / 100, flags: r[7],
         kickT: r[8] / 100, kickDur: r[9] / 100 || 0.2, stunT: r[10] / 100, recoverT: r[11] / 100, diveT: r[12] / 100, diveDir: r[13],
         celebrateT: r[14] / 100, celebKind: r[15] >= NET_CELEBS.length ? passId('celebration', r[15] - NET_CELEBS.length + 1) : NET_CELEBS[r[15]], slideT: r[16] / 100, slideWindT: r[17] / 100, sdx: s * r[18] / 100, sdy: r[19] / 100,
         fallT: r[20] / 100, hopT: r[21] / 100,
         ultFlags: r[22] || 0, ultKind: NET_ULTS[r[23] || 0], ultShotT: (r[24] || 0) / 100,
+        z: r[25] || 0, vz: r[26] || 0, shootT: (r[27] || 0) / 100, blockT: (r[28] || 0) / 100,
+        dunkKind: r[29] || 0, dunkT: (r[30] || 0) / 100, dunkDur: (r[31] || 0) / 100 || 0.6, dunkTop: (r[32] || 0) / 100 || 0.36, dribble: (r[33] || 0) / 100,
       })),
       b: (() => {
         const r = msg.b;
         const shotTeam = r[10] ? 'red' : 'blue';
         return { x: X(r[0]), y: r[1], z: r[2], vx: s * r[3], vy: r[4], vz: r[5], owner: r[6], trailType: NET_TRAILS[r[7]], level: r[8], power: r[9],
-          team: this.mirror ? (shotTeam === 'blue' ? 'red' : 'blue') : shotTeam, bl: (this.mirror ? r[12] : r[11]) / 100, br: (this.mirror ? r[11] : r[12]) / 100 };
+          team: this.mirror ? (shotTeam === 'blue' ? 'red' : 'blue') : shotTeam, bl: (this.mirror ? r[12] : r[11]) / 100, br: (this.mirror ? r[11] : r[12]) / 100,
+          rl: (this.mirror ? r[14] : r[13]) / 100 || 0, rr: (this.mirror ? r[13] : r[14]) / 100 || 0 };
       })(),
       ev: msg.ev.map((e) => this.flipEvent(e)),
       // PRO MATCH: a restart being set up (see the server's snapshot)
       rs: Array.isArray(msg.rs) ? (() => {
         const r = msg.rs, team = r[1] ? 'red' : 'blue';
         return { kind: NET_RESTARTS[r[0]] || 'throw', team: this.mirror ? (team === 'blue' ? 'red' : 'blue') : team, taker: r[2],
-          bx: X(r[3]), by: r[4], ax: s * r[5] / 100, ay: r[6] / 100, t: r[7] / 100 };
+          bx: X(r[3]), by: r[4], ax: s * r[5] / 100, ay: r[6] / 100, t: r[7] / 100, n: r[8] || 0, left: r[9] || 0, fly: r[10] ? {} : null, base: !!r[11] };
       })() : null,
     };
     // clock: the earliest a tick could have arrived is our best guess at "now" on the server
     const est = now - msg.k * NET_TICK_MS;
     if (this.offset === null || est < this.offset) this.offset = est;
     else this.offset += Math.min(est - this.offset, 2) * 0.02; // drift up slowly if the network got slower
+    // a jump shot just went up: its arc carries the loose ball between snapshots (advanceBall)
+    for (const e of snap.ev) if (e.e === 'shot' && Array.isArray(e.s)) this.arc = { x0: e.s[0], y0: e.s[1], z0: e.s[2], ex: e.s[3], ey: e.s[4], ez: e.s[5], T: e.s[6] / 1000, apex: e.s[7], k: msg.k };
     this.snaps.push(snap);
     if (this.snaps.length > 40) {
       // a long stall (hidden tab, slow phone) can push snapshots out before they were shown: still play goals and celebrations
@@ -314,6 +318,7 @@ const Online = {
     const W = CFG.FIELD_W;
     if (e.e === 'f' && NET_POS_FX.has(e.n) && e.a.length) { const a = e.a.slice(); a[0] = W - a[0]; return { ...e, a }; }
     if (e.e === 'goal') return { ...e, team: e.team === 'blue' ? 'red' : 'blue', x: W - e.x };
+    if (e.e === 'shot' && Array.isArray(e.s)) { const s = e.s.slice(); s[0] = W - s[0]; s[3] = W - s[3]; return { ...e, s }; }
     return e;
   },
 
@@ -341,6 +346,7 @@ const Online = {
       for (const e of snap.ev) this.playEvent(e);
     }
     m.phase = latest.phase; m.phaseT = latest.phaseT + since; m.time = latest.time;
+    if (latest.shotClock !== undefined) m.shotClock = latest.phase === 'play' ? Math.max(0, latest.shotClock - since) : latest.shotClock;
     // the cutscene starting clears the big GOAL! banner so it never covers the celebration
     if (m.phase === 'cele' && this._lastPhase !== 'cele') FX.banner = null;
     // (only a restart, where everyone is put back in place, drops the smoothing; a goal keeps it gliding)
@@ -382,7 +388,7 @@ const Online = {
     let kp = this.kick;
     if (kp) {
       kp.t += dt;
-      this.stepBall(kp, dt);
+      if (kp.arc) this.flyArc(kp, kp.arc, kp.t, dt); else this.stepBall(kp, dt);
       const seen = latest.me && latest.me[0] >= kp.seq;
       const why = !play || !this.predOk || (ownL && ownL !== me) || kp.t > 2 ? 'off' : seen && ownL === me && kp.t > wait ? 'late' : null;
       if (why) { this.kick = kp = null; count('kick_' + why); }
@@ -410,7 +416,7 @@ const Online = {
     } else if (mine) {
       const off = me.r + CFG.BALL_R + 4 + Math.min(1, Math.hypot(me.vx, me.vy) / CFG.SPEED) * 7;
       tx = me.x + me.fx * off; ty = me.y + me.fy * off; tvx = me.vx; tvy = me.vy;
-      tz = me.hopT > 0 ? Math.sin((1 - me.hopT / 0.42) * Math.PI) * 20 : 0;
+      tz = me.dunk ? LB.z : me.charging ? (me.z || 0) + 66 : (me.z || 0) + Math.abs(Math.sin(me.dribble || 0)) * CFG.DRIBBLE_H * (me.hopT > 0 ? 0.3 : 1);
       ball.owner = me; this.wBall = 1;
     } else if (ownL && ownL !== me) {
       // someone else has it: at their feet, as they're drawn (the dribble offset the server had)
@@ -455,6 +461,7 @@ const Online = {
     if (bs.trailType) ball.trailType = bs.trailType;
     ball.shot = bs.level >= 0 ? { level: bs.level, power: !!bs.power, team: kp ? 'blue' : bs.team } : null;
     ball.netBulge.left = LB.bl; ball.netBulge.right = LB.br;
+    if (ball.rim) { ball.rim.left = LB.rl || 0; ball.rim.right = LB.rr || 0; }
     ball.roll += Math.hypot(ball.vx, ball.vy) * dt / CFG.BALL_R;
     this.trail(ball, dt, !!bs.trailType);
     this.cosmetics(m, dt);
@@ -465,7 +472,19 @@ const Online = {
   // a loose ball `t` seconds on, moved exactly the way the server moves it (gravity, bounces, grass,
   // air, boards). Curl and ult homing aren't sent, so those bend a little late and get smoothed.
   advanceBall(s, t) {
+    const A = this.arc;
+    if (A && s.owner < 0 && s.level >= 0) {
+      const at = (this.lastK - A.k) / 120 + t;
+      if (at >= 0 && at < A.T) { const o = { x: s.x, y: s.y, z: s.z, vx: 0, vy: 0, vz: 0 }; this.flyArc(o, A, at, 0.01); return o; }
+    }
     return this.holdAtTheLine(this.stepBall({ x: s.x, y: s.y, z: s.z, vx: s.vx, vy: s.vy, vz: s.vz }, t));
+  },
+  // a ball `at` seconds along a shot's arc (shotPos, the server's own), with the speed it has there
+  flyArc(b, A, at, dt) {
+    const P = shotPos(A, at), Q = shotPos(A, Math.min(A.T, at + 0.01));
+    b.vx = (Q.x - P.x) * 100; b.vy = (Q.y - P.y) * 100; b.vz = (Q.z - P.z) * 100;
+    b.x = P.x; b.y = P.y; b.z = P.z;
+    return b;
   },
 
   // Your screen is not allowed to score.
@@ -542,6 +561,8 @@ const Online = {
     me.fx = p.fx; me.fy = p.fy; this.kickT = p.kickT; // you face the ball you just hit, as on the server
     this.kick = { kind, t: 0, hand: 0, seq: this.seq + 1, x: sb.x, y: sb.y, z: sb.z, vx: sb.vx, vy: sb.vy, vz: sb.vz, spinX: sb.spinX, spinY: sb.spinY, spinT: sb.spinT,
       trailType: sb.trailType, level: sb.shot ? sb.shot.level : -1, power: !!(sb.shot && sb.shot.power) };
+    // a jump shot goes up its arc (the same start as the server's: where it comes down is the server's call)
+    if (sb.shot && sb.shot.T) this.kick.arc = { x0: sb.shot.x0, y0: sb.shot.y0, z0: sb.shot.z0, ex: sb.shot.ex, ey: sb.shot.ey, ez: sb.shot.ez, T: sb.shot.T, apex: sb.shot.apex };
     if (this.dbg) this.dbg.kick_start = (this.dbg.kick_start || 0) + 1; // (tools/ballscan.js counts these)
   },
   // Your tackle starts the moment you press, like your kicks: the server's own lunge code on a scratch copy
@@ -611,7 +632,9 @@ const Online = {
   applyNow(p, S, since, ahead, dt, reset) {
     const run = (v) => Math.max(0, v - since);
     const T = { ...S, kickT: run(S.kickT), stunT: run(S.stunT), recoverT: run(S.recoverT), diveT: run(S.diveT), celebrateT: run(S.celebrateT),
-      slideT: run(S.slideT), slideWindT: run(S.slideWindT), fallT: run(S.fallT), hopT: run(S.hopT), ultShotT: S.ultShotT + since };
+      slideT: run(S.slideT), slideWindT: run(S.slideWindT), fallT: run(S.fallT), hopT: run(S.hopT), ultShotT: S.ultShotT + since,
+      shootT: run(S.shootT), blockT: run(S.blockT), dunkT: S.dunkKind ? Math.min(S.dunkDur, S.dunkT + since) : 0, dribble: S.dribble + since * 10,
+      z: S.dunkKind ? S.z : Math.max(0, S.z + S.vz * since - 0.5 * CFG.GRAVITY * since * since) };
     this.applyPlayer(p, T, T, 0, dt);
     const pos = this.extrapolate(S, ahead), off = p.netOff || (p.netOff = { x: 0, y: 0 }), prev = p.netPrev;
     if (prev && !reset) {
@@ -635,7 +658,7 @@ const Online = {
     const key = RS.kind + ':' + RS.bx + ':' + RS.by;
     if (key !== this.restartKey) { this.restartKey = key; this.restartAim = null; }
     const taker = m.players[RS.taker] || null;
-    const R = { kind: RS.kind, team: RS.team, taker, bx: RS.bx, by: RS.by, ax: RS.ax, ay: RS.ay, t: RS.t + since, human: !this.watching && taker === m.human };
+    const R = { kind: RS.kind, team: RS.team, taker, bx: RS.bx, by: RS.by, ax: RS.ax, ay: RS.ay, t: RS.t + since, n: RS.n, left: RS.left, fly: RS.fly, base: RS.base, human: !this.watching && taker === m.human };
     if (R.human) {
       const mv = Input.move;
       if (Math.hypot(mv.x, mv.y) > 0.3) this.restartAim = Rules.legalAim(m, mv.x, mv.y, R);
@@ -676,6 +699,10 @@ const Online = {
     p.sad = !!(S.flags & 1); p.slideHit = !!(S.flags & 2); p.sprintOn = !!(S.flags & 4); p.throwIn = !!(S.flags & 32);
     p.ultOn = !!(S.ultFlags & 1);
     p.ultShot = S.ultFlags & 2 ? { kind: S.ultKind, t: S.ultShotT, dur: 0.8 } : null;
+    // basketball: in the air, the follow-through, a block, a dunk or layup, the dribble
+    p.z = lerp(A.z || 0, B.z || 0, u); p.vz = S.vz || 0; p.shootT = S.shootT || 0; p.blockT = S.blockT || 0;
+    p.dunk = S.dunkKind ? { kind: S.dunkKind === 1 ? 'dunk' : 'layup', t: S.dunkT, dur: S.dunkDur, top: S.dunkTop } : null;
+    if (Number.isFinite(S.dribble)) p.dribble = S.dribble;
     if (p !== this.m.human) p.charging = !!(S.flags & 8);
     p.runPhase += Math.hypot(p.vx, p.vy) * dt * 0.075;
   },
@@ -900,9 +927,9 @@ const Online = {
     FX.burst(e.x, e.y, e.z + 10, colors[0], e.power ? 60 : 44, 0.4);
     FX.doFlash(TEAMS[team].jersey, 0.5);
     FX.doShake(e.power ? 13 : 9, 0.35);
-    let sub = tl('OWN GOAL');
+    let sub = tl('WRONG BASKET');
     if (scorer) sub = mineScored ? tl('YOU SCORED!') : scorer.name ? scorer.name : `#${scorer.number} ${TEAMS[team].name}`;
-    const big = team === 'blue' ? (mineScored && e.hype ? e.hype : tl('GOAL!')) : tl('GOAL!');
+    const big = team === 'blue' ? (mineScored && e.hype ? e.hype : tl('BUCKET!')) : tl('BUCKET!');
     if (m.phase !== 'cele') FX.showBanner(big, team === 'blue' ? '#ffe14d' : shadeHex(TEAMS.red.jersey, 0.15), 2.0, e.hype && !mineScored ? sub + ' · ' + e.hype : sub);
     Sound.net(); Sound.cheer(true); Sound.goalJingle(team === 'blue');
     if (team === 'blue') vibrate([30, 40, 30]);
@@ -949,7 +976,7 @@ const Online = {
 };
 
 // the sounds the server makes for a player's own pass, shot, skill and tackle (the only ones played early)
-const SELF_SOUNDS = new Set(['pass', 'kick', 'skill', 'slide']);
-const FORMAT_SIZE_NET = { 'pens': 1, 'fk': 1, '1v1': 1, '2v2': 2, '3v3': 3, '4v4': 4 };
+const SELF_SOUNDS = new Set(['pass', 'kick', 'shoot', 'skill', 'slide']);   // (shoot: your jump shot's release)
+const FORMAT_SIZE_NET = { 'pens': 1, 'fk': 1, '1v1': 1, '2v2': 2, '3v3': 3 };
 // 'pro/3v3' (PRO MATCH online) is a 3v3
 const netFormat = (f) => (typeof f === 'string' && f.startsWith('pro/') ? f.slice(4) : f);

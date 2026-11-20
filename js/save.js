@@ -25,7 +25,7 @@ const Save = {
       seenCC: 1,     // 0 = show what Club Career changed (an older save, once)
       stadium: 'day',
       ball: 'classic',
-      format: '4v4',
+      format: '3v3',
       owned: { character: [], trail: [], celebration: [], stadium: [], ball: [], accessory: [], skill: [], emote: [] },
       // emotes (build 120): the ones in your match menu, today's emote shop, and (for a guest) what
       // makes this device's shop its own

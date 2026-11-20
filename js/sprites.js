@@ -44,15 +44,32 @@ const Sprites = {
 
     let legSwing = 0, armSwing = 0, bob = 0, jump = 0, lean = 0, rot = 0, kick = 0;
     let armsUp = 0, slide = 0, upperLean = 0, tuck = 0, dive = 0, fall = 0;
-    if ((p.slideWindT || 0) > 0) {
-      lean = 0.35; jump = -5; legSwing = 0.6; armSwing = -0.6; // crouched, about to slide
-    } else if (p.slideT > 0) {
-      kick = 1; lean = 0.3; jump = -2; // tackle lunge: poking a leg in
+    // basketball: where the two hands go (back arm, front arm), when something says so
+    let handsAt = null;
+    const dribbling = p.hasBall && !p.charging && !p.dunk && !cp && p.celebrateT <= 0;
+    if (p.slideT > 0) {
+      // a reach for the ball: the front arm out low, leaning in
+      lean = 0.22; handsAt = [[-12, -32], [25, -30]];
     } else if (p.fallT > 0) {
       fall = 1; jump = -4;
     } else if (p.diveT > 0) {
       dive = 1; rot = (Math.PI / 2.2) * (p.diveDir * TEAMS[p.team].dir > 0 ? 1 : -1) * flip;
       jump = 10; armsUp = 1;
+    } else if (p.dunk && !cp) {
+      // going up for it: the ball held high, then hammered down through the rim
+      const d = p.dunk, before = d.t < d.top;
+      if (d.kind === 'dunk') { handsAt = before ? [[-12, -60], [9, -82]] : [[-14, -58], [15, -56]]; tuck = before ? 0.7 : 0; }
+      else handsAt = before ? [[-8, -60], [11, -78]] : [[-8, -62], [13, -80]];
+      legSwing = before ? 0.5 : 0;
+    } else if (p.charging && p.hasBall && !cp) {
+      // set to shoot: the ball up over the head in both hands, knees bent
+      handsAt = [[-6, -64], [8, -66]]; jump = -3;
+    } else if (p.shootT > 0 && !cp) {
+      // the follow-through: both arms up, wrists flicked
+      handsAt = [[3, -72], [11, -78]];
+    } else if ((p.blockT > 0 || (p.z || 0) > 12) && !cp) {
+      // up for a block or a rebound: both arms reaching high
+      handsAt = [[-17, -75], [17, -77]]; tuck = (p.z || 0) > 18 ? 0.5 : 0;
     } else if (cp) {
       if (cp.run && sp > 0.08) { legSwing = Math.sin(p.runPhase) * Math.min(1, sp * 1.3); armSwing = -legSwing; bob = Math.abs(Math.sin(p.runPhase)) * 2.2 * Math.min(1, sp); }
       jump = cp.jump || 0; bob += cp.bob || 0; lean = cp.lean || 0; rot = cp.rot || 0; upperLean = cp.upper || 0;
@@ -63,8 +80,10 @@ const Sprites = {
       jump = Math.abs(Math.sin(t * 9 + p.seed)) * 11; armsUp = 1;
       legSwing = Math.sin(t * 18 + p.seed) * 0.5;
     } else if (p.kickT > 0) {
-      kick = Math.sin((1 - p.kickT / p.kickDur) * Math.PI);
-      lean = -0.14 * kick;
+      // a chest pass: both hands pushed out in front
+      const push = Math.sin((1 - p.kickT / p.kickDur) * Math.PI);
+      handsAt = [[6 + push * 10, -38], [10 + push * 12, -36]];
+      lean = 0.08 * push;
     } else if (p.stunT > 0) {
       rot = Math.sin(t * 40) * 0.12;
     } else if (sp > 0.08) {
@@ -76,7 +95,13 @@ const Sprites = {
       bob = Math.sin(t * 3 + p.seed) * 0.6;
       if (p.sad) { bob -= 1; lean = 0.12; }
     }
-    if (p.recoverT > 0 && !slide && !dive) rot = 0.25 * flip * Math.min(1, p.recoverT / 0.25);
+    if (dribbling && !handsAt) {
+      // the dribbling hand follows the ball down and up at your side
+      const bnc = Math.abs(Math.sin(p.dribble || 0));
+      handsAt = [[-13 + armSwing * 6, -28], [16, -20 - bnc * 10]];
+      lean += 0.06;
+    }
+    if (p.recoverT > 0 && !slide && !dive && !p.dunk) rot = 0.12 * flip * Math.min(1, p.recoverT / 0.25);
     if (p.hopT > 0) { jump += Math.sin((1 - p.hopT / 0.42) * Math.PI) * 22; tuck = 1; armsUp = 0.5; }
     if (p.throwIn) armsUp = 1; // (PRO MATCH: holding a throw-in over your head)
     if (p.sprintOn && sp > 0.5 && !slide) lean += 0.12;
@@ -130,11 +155,11 @@ const Sprites = {
 
     // ---- shorts ----
     ctx.save(); if (buff) ctx.scale(1 + 0.17 * buff, 1);
-    this.rr(ctx, -10.5, -27, 21, 11.5, 4.5); this.blob(ctx, kit.shorts);
+    this.rr(ctx, -11.5, -28, 23, 15, 4.5); this.blob(ctx, kit.shorts);
     ctx.fillStyle = shadeHex(kit.shorts, kit.shorts === '#ffffff' ? -0.12 : -0.3);
-    ctx.fillRect(-9.2, -19.5, 18.4, 2.8);
+    ctx.fillRect(-10.2, -16.5, 20.4, 2.6);
     ctx.fillStyle = kit.accent === OUTLINE ? '#3a3f66' : kit.accent;
-    ctx.fillRect(7.2, -25.5, 2.2, 8.5);
+    ctx.fillRect(8.2, -26.5, 2.2, 11.5);
     ctx.restore();
 
     if (upperLean) { ctx.translate(0, -22); ctx.rotate(upperLean); ctx.translate(0, 22); }
@@ -151,6 +176,7 @@ const Sprites = {
       if (kick) { hx = side * 16; hy = -34; }
       if (slide && side < 0) { hx = -16; hy = -22; }
       if (cp && cp.hands) { const hand = cp.hands[side < 0 ? 0 : 1]; hx = hand[0]; hy = hand[1]; }
+      else if (handsAt) { const hand = handsAt[side < 0 ? 0 : 1]; hx = hand[0]; hy = hand[1]; }
       this.limb(ctx, side * shX, shY, hx, hy, 5.6 + 3 * buff, look.skin);
       if (buff) {
         // the bicep: a flat bulge a little way down the arm, with a pale flat highlight on it
@@ -188,7 +214,9 @@ const Sprites = {
       }
       ctx.beginPath(); ctx.arc(hx, hy, p.isKeeper ? 4.8 : 3.4 + 0.9 * buff, 0, Math.PI * 2);
       this.blob(ctx, p.isKeeper ? kit.gloves : look.skin);
-      ctx.beginPath(); ctx.arc(side * shX, shY + 1, 5.6 + 1.8 * buff, 0, Math.PI * 2); this.blob(ctx, kit.sleeves || kit.jersey);
+      // a basketball vest: bare shoulders, the jersey's strap over the top
+      ctx.beginPath(); ctx.arc(side * shX, shY + 1, 5.6 + 1.8 * buff, 0, Math.PI * 2); this.blob(ctx, look.skin);
+      ctx.fillStyle = kit.jersey; ctx.fillRect(side * shX - 2.6 - side * 2, shY - 4.6, 5.2, 4.2);
       if (has('armband') && side > 0 && !p.isKeeper) {
         const f = Math.min(0.62, 7 / armLen), ax = lerp(side * shX, hx, f), ay = lerp(shY, hy, f);
         ctx.beginPath(); ctx.arc(ax, ay, 4.4, 0, Math.PI * 2); this.blob(ctx, '#ffe14d');
@@ -2172,7 +2200,7 @@ const Sprites = {
 
   shadow(ctx, sx, sy, k, r, z) {
     const s = clamp(1 - z / 140, 0.45, 1);
-    ctx.fillStyle = 'rgba(20, 60, 20, 0.28)';
+    ctx.fillStyle = 'rgba(28, 18, 40, 0.28)';
     ctx.beginPath(); ctx.ellipse(sx, sy, r * 1.05 * s * k, r * 0.5 * s * k, 0, 0, Math.PI * 2); ctx.fill();
   },
 
@@ -2195,17 +2223,21 @@ const Sprites = {
     const sp = Math.hypot(b.vx, b.vy) || 1;
     const dx = b.vx / sp, dy = b.vy / sp;
     const phase = ((b.roll % (Math.PI * 2)) / (Math.PI * 2)) * 2 - 1; // -1..1
-    ctx.fillStyle = skin.patch;
-    if (!skin.noPanels) for (let j = -1; j <= 1; j++) {
-      const off = (phase + j * 1.0) * r * 1.3;
-      const cx = sx + dx * off, cy = sy + dy * off * CFG.TILT;
-      if (skin.multi) ctx.fillStyle = skin.multi[(j + 4) % 3];
-      this.pent(ctx, cx, cy, r * 0.36, b.roll * 0.3 + j);
-      for (let i = 0; i < 5; i++) {
-        const a = (i / 5) * Math.PI * 2 + b.roll * 0.3 + j;
-        if (skin.multi) ctx.fillStyle = skin.multi[(i + j + 4) % 3];
-        this.pent(ctx, cx + Math.cos(a) * r * 0.95, cy + Math.sin(a) * r * 0.95, r * 0.26, a);
-      }
+    if (!skin.noPanels) {
+      // a basketball's seams: one round the middle, one across it turning as the ball spins, and the
+      // two curved ones near the edges
+      const ang = Math.atan2(dy, dx), a = b.roll;
+      const seam = (i) => (skin.multi ? skin.multi[i % 3] : skin.patch);
+      ctx.save(); ctx.translate(sx, sy); ctx.rotate(ang);
+      ctx.lineWidth = Math.max(1, r * 0.14); ctx.lineCap = 'round';
+      ctx.strokeStyle = seam(0); ctx.beginPath(); ctx.moveTo(-r * 1.1, 0); ctx.lineTo(r * 1.1, 0); ctx.stroke();
+      ctx.strokeStyle = seam(1); ctx.beginPath(); ctx.ellipse(Math.sin(a) * r * 0.2, 0, Math.max(0.6, Math.abs(Math.cos(a)) * r), r * 1.05, 0, 0, Math.PI * 2); ctx.stroke();
+      const sh = Math.sin(a) * r * 0.35;
+      ctx.strokeStyle = seam(2);
+      ctx.beginPath(); ctx.arc(-r * 1.25 + sh, 0, r * 0.95, -0.95, 0.95); ctx.stroke();
+      ctx.beginPath(); ctx.arc(r * 1.25 + sh, 0, r * 0.95, Math.PI - 0.95, Math.PI + 0.95); ctx.stroke();
+      ctx.lineCap = 'butt';
+      ctx.restore();
     }
     // build 121's balls: stripes that roll past, mirror tiles that catch the light, a snowflake, a leaf
     if (skin.stripes) {

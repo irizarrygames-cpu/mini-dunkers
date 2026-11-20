@@ -1,8 +1,8 @@
 {
-  "appId": "com.irizarrygames.ministrikers",
-  "appName": "Mini Strikers",
+  "appId": "com.irizarrygames.minidunkers",
+  "appName": "Mini Dunkers",
   "webDir": "www",
-  "backgroundColor": "#2f7bff",
+  "backgroundColor": "#ff7a1f",
   "server": {
     "androidScheme": "https"
   },

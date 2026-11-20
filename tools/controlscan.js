@@ -38,7 +38,8 @@ function setup() {
   const mate = m.players.find((p) => p.team === h.team && p !== h && !p.isKeeper) || m.players.find((p) => p.team === h.team && p !== h);
   const opp = m.players.find((p) => p.team !== h.team && !p.isKeeper);
   for (const p of m.players) { p.x = p.team === h.team ? 200 : W - 200; p.y = p.isKeeper ? H / 2 : 150; p.vx = 0; p.vy = 0; }
-  h.x = 1200; h.y = 700; mate.x = 860; mate.y = 700; opp.x = 1700; opp.y = 1200;
+  h.x = 1200; h.y = 700; mate.x = 860; mate.y = 700; opp.x = 1700; opp.y = 950;
+  m.ball.dead = false; m.ball.through = null;   // (in play, as after a tip-off)
   return { m, h, mate, opp, b: m.ball };
 }
 
@@ -60,14 +61,24 @@ function passTo(m, from, to, speed = 560) {
 }
 
 // the teammate passes to you; press `bit` when the ball is `early` seconds from you
+// (when the ball reaches you, found by playing the same pass once with no press: a ball rolling on a
+// court slows down, so its distance over its speed is not the time it takes)
+function arrival() {
+  const s = setup(), { m, h, mate, b } = s;
+  b.owner = mate; b.x = mate.x + 16; b.y = mate.y; b.z = 0; b.vx = b.vy = b.vz = 0; b.shot = null;
+  passTo(m, mate, h);
+  for (let i = 0; i < 360; i++) { step(s); if (b.owner === h) return i * CFG.STEP; }
+  return null;
+}
 function incoming(bit, early) {
+  const arrive = arrival();
   const s = setup(), { m, h, mate, b } = s;
   b.owner = mate; b.x = mate.x + 16; b.y = mate.y; b.z = 0; b.vx = b.vy = b.vz = 0; b.shot = null;
   passTo(m, mate, h);
   const res = { pressedAt: null, gotAt: null, passedAt: null, slid: false, skilled: false };
   for (let i = 0; i < 240 && res.passedAt === null; i++) {
     const t = i * CFG.STEP, d = Math.hypot(b.x - h.x, b.y - h.y), v = Math.hypot(b.vx, b.vy) || 1;
-    if (res.pressedAt === null && !b.owner && d / v < early) { h.input.q |= bit; res.pressedAt = t; }
+    if (res.pressedAt === null && !b.owner && arrive !== null && t >= arrive - early - 1e-9) { h.input.q |= bit; res.pressedAt = t; }
     // standing still: a pass aimed ahead of a runner can miss him, which is not what this is about
     h.input.move.x = 0; h.input.move.y = 0;
     step(s);

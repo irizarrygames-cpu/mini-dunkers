@@ -79,13 +79,15 @@ const Career = {
     ];
     const out = tiers.map((stars) => {
       const c = pickStars(stars);
-      const goal = Math.max(5, Math.round(((6 + c.stars * 8) * (1 + (ovr - 60) / 50) * (0.85 + rng() * 0.3)) / 5) * 5);
-      const assist = Math.max(5, Math.round((goal * (0.55 + rng() * 0.15)) / 5) * 5);
+      // per point (a basket is two or three of them) and per assist, so a match pays what a match did
+      const base = (6 + c.stars * 8) * (1 + (ovr - 60) / 50) * (0.85 + rng() * 0.3);
+      const goal = Math.max(2, Math.round(base / 3.4));
+      const assist = Math.max(2, Math.round(base * (0.27 + rng() * 0.07)));
       return { club: c.id, goal, assist };
     });
     // every offer pays something different
     out.sort((a, b) => b.goal - a.goal || b.assist - a.assist);
-    for (let i = 1; i < out.length; i++) if (out[i].goal >= out[i - 1].goal) out[i].goal = Math.max(5, out[i - 1].goal - 5);
+    for (let i = 1; i < out.length; i++) if (out[i].goal >= out[i - 1].goal) out[i].goal = Math.max(1, out[i - 1].goal - 1);
     return out;
   },
 

@@ -1,145 +1,53 @@
-// PENALTY SHOOTOUT: a mode of its own. Five kicks each, then sudden death. You take all of
-// your side's kicks and you're in goal for theirs. It's drawn from behind the taker, looking
-// at the goal, so picking a corner reads the way it does on TV.
+// THE 3-POINT CONTEST and FREE THROWS: the shootout modes. Five shots each, taking turns, then one
+// each until one makes it and the other does not. In the 3-point contest your five go round the arc,
+// corner to corner (sudden death carries on round it); free throws are all from the line.
 //
-// FREE KICKS (m.pens.fk) are the same shootout from twice as far out, with a wall in the way: see
-// PEN.FK. The controls are the same; what changes is where it is worth aiming.
+// A shot is all in the release: hold SHOOT, the meter fills, let go in the green at the top. The meter
+// fills at a slightly different speed every shot, so it is your timing, not your memory. It is drawn
+// from behind the shooter, looking at the hoop; the camera goes round the arc with you.
 //
-// PEN is the whole kick in plain maths (metres: goal 7.32 x 2.44, spot 11m out), with no screen,
-// so tools/pensscan.js can take thousands of kicks and measure how often they go in.
+// PEN is the shot in plain numbers, the same as server/pens.js (tools/contestscan.js checks they
+// agree and measures how often each kind of release drops).
 const PEN = {
-  HW: 3.66, HT: 2.44, SPOT: 11, BR: 0.11, POST: 0.06,
-  // keeper: hips start at hip height and travel up to `reach` along the dive at `speed` m/s; the
-  // body runs `legs` back from the hips to `arm` out to the fingertips, `r` thick
-  // (you in goal get quicker feet than the bots: PLAYER_DIVE)
-  K: { hip: 0.72, reach: 1.75, up: 0.6, speed: 5.2, legs: 0.5, arm: 1.35, r: 0.33, standR: 0.38 },
-  PLAYER_DIVE: 7.2, BOT_SLOW: 2.5,
-
-  // FREE KICKS. The ball is 22 m out. A wall of four stands 9.15 m from it, covering one side of
-  // the goal (`side` -1 left, 1 right, in the goal's own across-ways metres); the keeper stands
-  // over the other side, KX in from the middle. A ball aimed at the wall's side that is still
-  // lower than the wall when it gets there is blocked. A soft one loops higher (ARC), so soft and
-  // high clears the wall, hard and low goes round it on the keeper's side. A ball over the wall is
-  // seen late (SCREEN: that much less time for the keeper), one round it a little late too.
-  // At this distance a kick is less sure than a penalty (SIGMA). Half the time the wall jumps.
-  // Tuned by tools/fkscan.js: over the wall goes in about 44%, round it about 33%, a penalty 69%.
-  FK: { DIST: 22, AT: 9.15, H: 2.0, JUMP: 0.32, KX: 0.9, NEAR: 0.12, SCREEN: 0.25, SCREEN_OPEN: 0.1, SIGMA: 1.35, MEN: 4 },
-  fkWall(r = Math.random) { return { side: r() < 0.5 ? -1 : 1, jump: r() < 0.45 }; },
-  fkCovered(x, wall) { return wall.side > 0 ? x > this.FK.NEAR : x < -this.FK.NEAR; },
-  fkArc(power) { return 0.35 + (1 - power) * 1.9; },
-  fkAtWall(z, power) { const f = this.FK.AT / this.FK.DIST; return z * f + this.fkArc(power) * 4 * f * (1 - f); },
-  fkTop(wall) { return this.FK.H + (wall.jump ? this.FK.JUMP : 0); },
-  // how long the keeper really has: the whole flight from the spot, less the screen of a wall
-  saveT(k) { return k.fk ? k.T - (k.covered ? this.FK.SCREEN : this.FK.SCREEN_OPEN) : k.T; },
-  // how long the ball is in the air before something happens to it (the wall stops it part way)
-  flightT(k) { return k.out === 'wall' ? k.T * (this.FK.AT / this.FK.DIST) : k.T; },
-
-  gauss() { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); },
-
-  // a strike. ax: -1..1 across the goal (posts at ±1), az: 0..1 up to the bar, power 0..1,
-  // q: the taker's finishing 0..1. Too much power sprays it and lifts it.
-  // slow: m/s off the pace (the bots' kicks, so you can see them coming)
-  // wall: a free kick's wall ({ side, jump }), or nothing for a penalty
-  kick(ax, az, power, q, slow = 0, wall = null) {
-    const sigma = (0.16 + (1 - q) * 0.22 + Math.max(0, power - 0.82) * 2.4) * (wall ? this.FK.SIGMA : 1);
-    const lift = Math.max(0, power - 0.78) * 2.0;
-    const x = ax * this.HW + this.gauss() * sigma;
-    const z = Math.max(this.BR, az * this.HT + lift + this.gauss() * sigma * 0.6);
-    const v = 16 + power * 13 + q * 2 - slow;
-    const k = { x, z, v, T: (wall ? this.FK.DIST : this.SPOT) / v, power, out: 'in', postIn: false };
-    k.out = this.frame(k);
-    // grazing the inside of the post or the bar: sometimes it goes in off it
-    if (k.out === 'post' || k.out === 'bar') k.postIn = Math.random() < 0.4;
-    if (wall) {
-      k.fk = true;
-      k.covered = this.fkCovered(x, wall);
-      k.atWall = this.fkAtWall(z, power);
-      if (k.covered && k.atWall < this.fkTop(wall)) { k.out = 'wall'; k.postIn = false; }
-    }
-    return k;
+  Z: { GOOD: 0.68, PERFECT: 0.84, TOP: 0.98, LATE: 1.2 },
+  SPOTS: 5,
+  // where the five spots are round the arc (radians from straight on), and how far out (metres from
+  // the middle of the rim): a three is 6.75, a free throw 4.23
+  ANGLES: [-1.25, -0.66, 0, 0.66, 1.25], R3: 6.75, RFT: 4.23,
+  // seconds for the meter to fill: a little different every shot
+  fillT(r = Math.random) { return 0.78 + r() * 0.3; },
+  zone(rel) { const Z = this.Z; return rel < Z.GOOD ? 'early' : rel < Z.PERFECT ? 'good' : rel <= Z.TOP ? 'perfect' : 'late'; },
+  // how likely a release this good is to drop. q: the shooter's touch 0..1 (helps a three a little)
+  chance(rel, q, ft) {
+    const Z = this.Z;
+    if (rel >= Z.PERFECT && rel <= Z.TOP) return ft ? 0.96 : 0.84 + q * 0.08;
+    if (rel >= Z.GOOD && rel < Z.PERFECT) { const u = (rel - Z.GOOD) / (Z.PERFECT - Z.GOOD); return ft ? lerp(0.62, 0.88, u) : lerp(0.3, 0.6, u) + q * 0.06; }
+    if (rel < Z.GOOD) { const u = clamp(rel / Z.GOOD, 0, 1); return ft ? lerp(0.12, 0.5, u) : lerp(0.03, 0.22, u); }
+    return ft ? 0.45 : 0.24;
   },
-
-  // where the ball crosses the line if nobody touches it
-  frame(k) {
-    const ax = Math.abs(k.x);
-    if (ax > this.HW + this.BR) return 'wide';
-    if (k.z > this.HT + this.BR) return 'over';
-    if (ax > this.HW - this.BR - this.POST) return 'post';
-    if (k.z > this.HT - this.BR - this.POST) return 'bar';
-    return 'in';
+  // what the ball does: early falls short, late goes long, a perfect one is usually all net
+  how(rel, made, r) {
+    const Z = this.Z, perfect = rel >= Z.PERFECT && rel <= Z.TOP;
+    if (made) return perfect ? (r < 0.72 ? 'swish' : r < 0.9 ? 'rimIn' : 'boardIn') : (r < 0.3 ? 'swish' : r < 0.72 ? 'rimIn' : 'boardIn');
+    if (rel < 0.35) return 'air';
+    if (rel < Z.GOOD) return r < 0.7 ? 'short' : 'rimOut';
+    if (rel > Z.TOP) return r < 0.65 ? 'long' : 'rimOut';
+    return r < 0.6 ? 'rimOut' : r < 0.85 ? 'short' : 'long';
   },
-
-  // the keeper t seconds after the kick. dive: { dx, dz, td } (unit direction, start time) or null
-  // (stays standing). Returns hips p, body axis a, how far they've gone s.
-  keeper(dive, kx, t) {
-    const K = this.K;
-    if (!dive) return { p: { x: kx, z: K.hip }, a: { x: 0, z: 1 }, s: 0, phi: 0, stand: true };
-    const up = Math.abs(dive.dx) < 0.3 && dive.dz > 0;
-    const s = clamp((dive.v || K.speed) * (t - dive.td), 0, up ? K.up : K.reach);
-    const phi = Math.atan2(dive.dx, dive.dz) * clamp(s / 0.7, 0, 1);
-    return { p: { x: kx + dive.dx * s, z: Math.max(0.3, K.hip + dive.dz * s) }, a: { x: Math.sin(phi), z: Math.cos(phi) }, s, phi, stand: false };
+  shot(rel, q, ft, r = Math.random) {
+    rel = clamp(Number.isFinite(rel) ? rel : 0.5, 0, this.Z.LATE);
+    const made = r() < this.chance(rel, clamp(q, 0, 1), ft);
+    return { rel, made, how: this.how(rel, made, r()), T: ft ? 0.9 : 1.05, ft: !!ft };
   },
-
-  // does the keeper get something on a ball crossing the line at (x, z) at time t?
-  saves(dive, kx, t, x, z) {
-    const K = this.K, k = this.keeper(dive, kx, t);
-    const legs = k.stand ? K.hip - 0.1 : K.legs, arm = k.stand ? 1.0 : K.arm, r = (k.stand ? K.standR : K.r) + this.BR;
-    const ax = k.p.x - k.a.x * legs, az = k.p.z - k.a.z * legs, bx = k.p.x + k.a.x * arm, bz = k.p.z + k.a.z * arm;
-    const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1;
-    const u = clamp(((x - ax) * dx + (z - az) * dz) / l2, 0, 1);
-    return Math.hypot(x - (ax + dx * u), z - (az + dz * u)) < r;
+  // a computer-controlled shooter's release: `perfect` of them in the green, most of the rest close
+  botRel(perfect, r = Math.random) {
+    const Z = this.Z, a = r();
+    if (a < perfect) return lerp(Z.PERFECT + 0.01, Z.TOP - 0.01, r());
+    if (a < perfect + (1 - perfect) * 0.65) return lerp(Z.GOOD, Z.PERFECT, r());
+    return r() < 0.6 ? lerp(0.4, Z.GOOD, r()) : lerp(Z.TOP, 1.12, r());
   },
-
-  // a bot in goal: now and then it reads the kick and goes the right way a moment after it's
-  // struck; otherwise it guesses a side (or stays up) as the ball is hit
-  // kx: where the keeper stands (a free kick's keeper is off to one side)
-  botDive(k, read, kx = 0) {
-    // a soft one gives it time to read
-    if (Math.random() < read + (1 - k.power) * 0.4) {
-      const dx = k.x - kx, dz = k.z - this.K.hip, l = Math.hypot(dx, dz) || 1;
-      if (Math.abs(dx) < 0.45) return null;
-      return { dx: dx / l, dz: dz / l, td: rand(0.1, 0.18) };
-    }
-    const r = Math.random();
-    if (r < 0.22) return null;
-    const side = r < 0.61 ? -1 : 1, ang = rand(-0.35, 1.0);
-    return { dx: side * Math.cos(ang), dz: Math.sin(ang), td: rand(-0.08, 0.04) };
-  },
-
-  // a bot taking one: mostly a side, the odd one down the middle; better takers go closer to the corners
-  botAim(aim) {
-    if (Math.random() < 0.12 - aim * 0.06) return { ax: rand(-0.2, 0.2), az: rand(0.05, 0.55), power: rand(0.5, 0.8) };
-    const side = Math.random() < 0.5 ? -1 : 1;
-    return { ax: side * rand(0.4, 0.8 + aim * 0.14), az: rand(0.05, 0.6 + aim * 0.3), power: rand(0.42 + aim * 0.12, 0.74 + aim * 0.12) };
-  },
-
-  // A bot in goal for a free kick. The ball is in the air a long time, so it reads the kick far more
-  // often than a penalty - unless the ball comes over the wall, which it sees late (READ_OVER).
-  // When it has to guess, it guesses its own side, the one the wall leaves open.
-  FK_READ: 0.42, FK_READ_OVER: 0.18,
-  fkBotDive(k, read, wall) {
-    const kx = -wall.side * this.FK.KX;
-    const chance = read + (k.covered ? this.FK_READ_OVER : this.FK_READ) + (1 - k.power) * 0.2;
-    if (Math.random() < chance) {
-      const dx = k.x - kx, dz = k.z - this.K.hip, l = Math.hypot(dx, dz) || 1;
-      if (Math.abs(dx) < 0.45) return null;
-      return { dx: dx / l, dz: dz / l, td: rand(0.1, 0.18) + (k.covered ? this.FK.SCREEN : 0) };
-    }
-    const r = Math.random();
-    if (r < 0.15) return null;
-    const side = r < 0.72 ? -wall.side : wall.side, ang = rand(-0.35, 1.0);
-    return { dx: side * Math.cos(ang), dz: Math.sin(ang), td: rand(-0.08, 0.04) };
-  },
-
-  // a bot taking a free kick: mostly over the wall into its corner, otherwise round it on the
-  // keeper's side; a better taker is braver with the corner
-  fkBotAim(aim, wall) {
-    if (Math.random() < 0.6) return { ax: wall.side * rand(0.5, 0.8 + aim * 0.12), az: rand(0.72, 0.95), power: rand(0.38 + aim * 0.05, 0.56) };
-    return { ax: -wall.side * rand(0.45, 0.78 + aim * 0.1), az: rand(0.1, 0.6), power: rand(0.55, 0.8) };
-  },
-
-  // who's won, if anyone yet: 'blue' | 'red' | null. Five each, stopping early when one side can't
-  // catch up, then one each until one scores and the other doesn't.
+  // who has won, if anyone yet: five each, stopping early when one side cannot catch up, then one
+  // each until one makes it and the other does not
   decided(kicks) {
     const b = kicks.blue, r = kicks.red, gb = b.filter(Boolean).length, gr = r.filter(Boolean).length;
     if (b.length < 5 || r.length < 5) {
@@ -152,23 +60,25 @@ const PEN = {
   },
 };
 
+// perfect: how often their shooter lets go in the green; q: their touch
 const PEN_LEVELS = {
-  // read: how often the bot keeper reads your kick; q/aim: their takers' finishing and placement;
-  // sw: how often their taker spots you diving early and puts it the other way
-  // 2026-09-27 "the penalties 2x easier": every one of these halved, level adders too.
-  easy: { read: 0.05, q: 0.15, aim: 0.075, sw: 0.15 },
-  normal: { read: 0.1, q: 0.25, aim: 0.225, sw: 0.25 },
-  hard: { read: 0.15, q: 0.34, aim: 0.375, sw: 0.325 },
+  easy: { perfect: 0.28, q: 0.3 },
+  normal: { perfect: 0.42, q: 0.45 },
+  hard: { perfect: 0.56, q: 0.6 },
 };
 const PEN_SAY = {
-  goal: [tl('GOAL!'), '#ffe14d'], save: [tl('SAVED!'), '#46d9ff'], wide: [tl('WIDE!'), '#ffffff'], over: [tl('OVER THE BAR!'), '#ffffff'],
-  post: [tl('OFF THE POST!'), '#ffffff'], bar: [tl('OFF THE BAR!'), '#ffffff'], postIn: [tl('IN OFF THE POST!'), '#ffe14d'], barIn: [tl('IN OFF THE BAR!'), '#ffe14d'],
-  wall: [tl('OFF THE WALL!'), '#ffffff'],
+  swish: [tl('SWISH!'), '#ffe14d'], rimIn: [tl('BUCKET!'), '#ffe14d'], boardIn: [tl('OFF THE GLASS!'), '#ffe14d'],
+  rimOut: [tl('IN AND OUT!'), '#ffffff'], short: [tl('SHORT!'), '#ffffff'], long: [tl('OFF THE BACK RIM!'), '#ffffff'], air: [tl('AIRBALL!'), '#ff8a8e'],
 };
+// the hoop and the ball at the game's own sizes (twice real, as in a match): rim radius and height,
+// the board's face (behind the rim), its width and height, the ball's radius
+const PEN_HOOP = { R: 0.4, Z: 3.05, BOARD: -0.62, BOARD_W: 2.6, BOARD_H: 1.5, BALL: 0.2 };
+const PEN_SPOT_NAMES = [tl('LEFT CORNER'), tl('LEFT WING'), tl('TOP OF THE KEY'), tl('RIGHT WING'), tl('RIGHT CORNER')];
+const PEN_ZONE_SAY = { early: [tl('EARLY'), '#ff8a8e'], good: [tl('GOOD'), '#ffe14d'], perfect: [tl('PERFECT!'), '#3fe07a'], late: [tl('LATE'), '#ff8a8e'] };
 
 const Pens = {
   // ---------- setup ----------
-  // fk: a free-kick shootout instead of penalties
+  // fk: free throws rather than the 3-point contest
   init(m, fk = false) {
     const lvl = PEN_LEVELS[Save.data.settings.difficulty] || PEN_LEVELS.normal, cl = m.club.level || 0;
     const ch = Save.character();
@@ -176,225 +86,191 @@ const Pens = {
     const takerLook = () => { const bc = pickBotCharacter(rng); return { hair: bc.hair, hairColor: bc.hairColor, skin: bc.skin, cap: bc.cap, band: bc.band, acc: null }; };
     m.mode = 'pens'; m.format = 'pens'; m.phase = 'play'; m.challenges = null;
     m.pens = {
-      bot: { read: lvl.read + cl * 0.0125, q: clamp(lvl.q + cl * 0.025, 0, 0.95), aim: clamp(lvl.aim + cl * 0.04, 0, 1), sw: lvl.sw },
+      bot: { perfect: clamp(lvl.perfect + cl * 0.02, 0, 0.8), q: clamp(lvl.q + cl * 0.03, 0, 0.95) },
       q: clamp(((ch.r && ch.r.sht) || 70) - 50, 0, 50) / 50 * 0.9 + 0.1,
       kicks: { blue: [], red: [] }, first: Math.random() < 0.5 ? 'blue' : 'red',
-      fk: !!fk, wall: null, kx: 0, wallMen: null,      // a free kick's wall, where its keeper stands, the men in it
-      n: 0, team: null, phase: 'start', t: 0, winner: null, saves: 0, theirSaves: 0,
-      aim: { x: 0, z: 0.45 }, power: 0, holding: false, holdInputSeen: false, holdT: 0, clock: 0, mouse: null,
-      shot: null, dive: null, kickAt: 0, result: null, say: null, cheerT: 0, shake: 0,
+      fk: !!fk, n: 0, team: null, phase: 'start', t: 0, winner: null, spot: 0,
+      saves: 0, theirSaves: 0, swishes: { blue: 0, red: 0 },
+      meter: 0, fill: 1, holding: false, holdInputSeen: false, holdT: 0, clock: 0, rel: null, botRel: 0, zoneSay: null,
+      shot: null, result: null, say: null, cheerT: 0, shake: 0, net: false,
       takers: [0, 1, 2, 3, 4].map((i) => ({ look: takerLook(), number: [9, 7, 11, 8, 10][i] })),
-      you: this.actor('blue', false, m.human.look, 10), them: null,
-      keeper: { blue: this.actor('blue', true, m.keepers.blue.look, 1), red: this.actor('red', true, m.keepers.red.look, 1) },
+      you: this.actor('blue', m.human.look, 10), them: null,
     };
     m.human.celebKind = null;
     m.score = { blue: 0, red: 0 };
     this.next(m, true);
   },
 
-  // a free kick's wall for this kick: its side, whether it jumps, and four of the defending side in it
-  setWall(P, wall) {
-    P.wall = P.fk ? wall : null;
-    P.kx = P.wall ? -P.wall.side * PEN.FK.KX : 0;
-    if (!P.wall) { P.wallMen = null; return; }
-    const team = P.team === 'blue' ? 'red' : 'blue', rng = mulberry32((Math.random() * 1e9) | 0);
-    P.wallMen = [0, 1, 2, 3].map((i) => {
-      const bc = pickBotCharacter(rng);
-      const a = this.actor(team, false, { hair: bc.hair, hairColor: bc.hairColor, skin: bc.skin, cap: bc.cap, band: bc.band, acc: null }, [4, 5, 6, 3][i]);
-      a.fy = 1; a.faceX = 0.001;      // facing the ball
-      return a;
-    });
-  },
-
   // something the sprite code can draw
-  actor(team, keeper, look, number) {
-    return { team, isKeeper: keeper, look, number, vx: 0, vy: 0, fx: 0, fy: keeper ? 1 : -1, faceX: 0.001, kickT: 0, kickDur: 0.22,
+  actor(team, look, number) {
+    return { team, isKeeper: false, look, number, vx: 0, vy: 0, fx: 0, fy: -1, faceX: 0.001, kickT: 0, kickDur: 0.22,
       celebrateT: 0, celebKind: null, diveT: 0, diveDir: 0, stunT: 0, recoverT: 0, seed: Math.random() * 10, runPhase: 0, sad: false,
-      slideT: 0, slideWindT: 0, fallT: 0, hopT: 0, skill: null, ultOn: false, ultShot: null, sprintOn: false, speed: 0 };
+      slideT: 0, slideWindT: 0, fallT: 0, hopT: 0, skill: null, ultOn: false, ultShot: null, sprintOn: false, speed: 0,
+      hasBall: true, charging: false, shootT: 0, blockT: 0, z: 0, dunk: null, dribble: 0 };
   },
+  // (the online and the old code's names for things that no longer exist: nothing to do)
+  setWall() {},
+  mouseAim() {},
 
-  // the next kick (or the end)
+  // the next shot (or the end)
   next(m, first) {
     const P = m.pens;
-    if (P.chal) return SkillRun.nextKick(m, first);
     if (!first) {
-      P.winner = PEN.decided(P.kicks);
-      if (P.winner) { P.phase = 'end'; P.t = 0; this.label(tl('SHOOT')); if (P.winner === 'blue') { Sound.cheer(true); Sound.goalJingle(true); } else Sound.ooh(); return; }
+      if (P.chal) { if (P.chal.kicks >= P.chal.total) { SkillRun.finishShots(m); return; } }
+      else {
+        P.winner = PEN.decided(P.kicks);
+        if (P.winner) { P.phase = 'end'; P.t = 0; this.label(tl('SHOOT')); if (P.winner === 'blue') { Sound.cheer(true); Sound.goalJingle(true); } else Sound.ooh(); return; }
+      }
       P.n++;
     }
     const other = P.first === 'blue' ? 'red' : 'blue';
-    P.team = P.n % 2 === 0 ? P.first : other;
-    P.phase = first ? 'start' : 'ready'; P.t = 0; P.shot = null; P.dive = null; P.result = null; P.say = null; P.power = 0; P.holding = false; P.holdInputSeen = false; P.holdT = 0;
-    P.aim = { x: 0, z: 0.45 }; P.mouse = null; P.clock = 10;
-    const taker = P.team === 'blue' ? P.you : this.actor('red', false, P.takers[Math.floor(P.n / 2) % 5].look, P.takers[Math.floor(P.n / 2) % 5].number);
-    if (P.team === 'red') P.them = taker;
-    Object.assign(taker, { celebrateT: 0, celebKind: null, sad: false, kickT: 0, fy: -1, faceX: 0.001, run: 0, vx: 0, vy: 0 });
-    for (const k of Object.values(P.keeper)) Object.assign(k, { diveT: 0, celebrateT: 0, sad: false, hopT: 0 });
-    P.runup = rand(0.9, 1.3);
-    if (P.fk && !P.net) this.setWall(P, PEN.fkWall());
-    this.label(P.team === 'blue' ? tl('SHOOT') : tl('DIVE'));
+    P.team = P.chal ? 'blue' : P.n % 2 === 0 ? P.first : other;
+    P.spot = this.spotFor(P, P.team);
+    this.resetShot(P);
+    P.clock = 10; P.fill = PEN.fillT();
+    const taker = P.team === 'blue' ? P.you : (P.them = this.actor('red', P.takers[Math.floor(P.n / 2) % 5].look, P.takers[Math.floor(P.n / 2) % 5].number));
+    this.freshTaker(taker);
+    P.runup = rand(0.8, 1.3); P.botRel = PEN.botRel(P.bot.perfect);
+    P.phase = first ? 'start' : 'ready';
+    this.label(tl('SHOOT'));
     this.flushInput();
+  },
+  spotFor(P, team) {
+    if (P.fk) return -1;
+    const n = P.chal ? P.chal.kicks : P.kicks[team].length;
+    return n % PEN.SPOTS;
+  },
+  resetShot(P) {
+    P.t = 0; P.shot = null; P.result = null; P.say = null; P.meter = 0; P.holding = false; P.holdInputSeen = false; P.holdT = 0; P.rel = null; P.zoneSay = null;
+  },
+  freshTaker(a) {
+    Object.assign(a, { celebrateT: 0, celebKind: null, sad: false, kickT: 0, fy: -1, fx: 0, faceX: 0.001, vx: 0, vy: 0, hasBall: true, charging: false, shootT: 0, z: 0, blockT: 0 });
   },
 
   fit(text, room) { return text.length > room ? room / text.length : 1; }, // a long name should not run off the sides
-  label(text) { const l = document.querySelector('#btn-shoot .label'); if (l && l.textContent !== text) l.textContent = text; },
+  // (the SHOOT button says JUMP on defence in a match: never here)
+  label(text) { const b = typeof document !== 'undefined' && document.getElementById('btn-shoot'); if (!b) return; b.classList.remove('jump'); const l = b.querySelector('.l-shoot') || b.querySelector('.label'); if (l && l.textContent !== text) l.textContent = text; },
   taker(P) { return P.team === 'blue' ? P.you : P.them; },
-  goalie(P) { return P.keeper[P.team === 'blue' ? 'red' : 'blue']; },
-  sudden(P) { return P.n >= 10; },
+  sudden(P) { return !P.chal && P.n >= 10; },
 
   // ---------- the game ----------
   step(m, dt) {
     const P = m.pens;
     if (P.net) return this.netStep(m, dt);
     P.t += dt;
-    P.cheerT = Math.max(0, P.cheerT - dt);
-    P.shake = Math.max(0, P.shake - dt);
-    const taker = this.taker(P), gk = this.goalie(P);
-    for (const a of [P.you, P.them, P.keeper.blue, P.keeper.red]) if (a) { a.kickT = Math.max(0, a.kickT - dt); a.celebrateT = Math.max(0, a.celebrateT - dt); a.hopT = Math.max(0, a.hopT - dt); }
-
+    this.tick(P, dt);
     switch (P.phase) {
       case 'start':
       case 'ready':
-        if (P.t >= (P.n === 0 ? 1.6 : 1.1)) { P.phase = P.team === 'blue' ? 'aim' : 'runup'; P.t = 0; Sound.whistle(); this.flushInput(); }
+        if (P.t >= (P.n === 0 && P.phase === 'start' ? 1.6 : 1.1)) { P.phase = P.team === 'blue' ? 'aim' : 'runup'; P.t = 0; Sound.whistle(); this.flushInput(); }
         break;
 
       case 'aim': {
-        // your kick: move the aim around the goal, hold SHOOT for power, let go to hit it
-        const mv = Input.move, q = P.q;
-        if (Math.hypot(mv.x, mv.y) > 0.05) P.mouse = null;
-        if (P.mouse) { P.aim.x += (P.mouse.x - P.aim.x) * Math.min(1, dt * 14); P.aim.z += (P.mouse.z - P.aim.z) * Math.min(1, dt * 14); }
-        else { P.aim.x += mv.x * 1.25 * dt; P.aim.z -= mv.y * 1.1 * dt; }
-        P.aim.x = clamp(P.aim.x, -1.08, 1.08); P.aim.z = clamp(P.aim.z, 0.03, 1.1);
-        // a steadier finisher's aim wobbles less
-        const wob = 0.035 + (1 - q) * 0.05;
-        P.sway = { x: Math.sin(P.t * 2.3) * wob, z: Math.sin(P.t * 1.7 + 1) * wob * 0.8 };
-        // Use both the queued edge and the live held state. Browsers can drop a pointer edge when
-        // focus changes or pointer capture moves, which used to leave SHOOT visibly held while the
-        // penalty never charged. The live state repairs that missed edge without firing on its own.
-        const press = Input.consumeShootPress();
-        if ((press || Input.shootHeld) && !P.holding) {
-          P.holding = true; P.holdInputSeen = !!Input.shootHeld; P.holdT = 0; Sound.chargeStart();
-        }
-        let release = Input.consumeShootRelease();
-        if (P.holding) {
-          if (Input.shootHeld) P.holdInputSeen = true;
-          if (P.holdInputSeen && !Input.shootHeld) release = true;
-          P.holdT += dt;
-          P.power = Math.min(1, P.holdT / 0.85);
-          if (P.holdT >= 1.6) release = true;
-        }
+        // your shot: hold SHOOT, the meter fills, let go
+        const rel = this.holdMeter(P, dt);
         P.clock -= dt;
-        if (P.clock <= 0 && !P.holding) { P.holding = true; P.power = 0.55; release = true; }
-        if (release && P.holding) {
-          P.holding = false; P.holdInputSeen = false; Sound.chargeStop();
-          P.shot = PEN.kick(P.aim.x + P.sway.x, P.aim.z + P.sway.z, P.power, q, 0, P.wall);
-          P.phase = 'strike'; P.t = 0;
-        }
+        if (rel === null && P.clock <= 0 && !P.holding) this.release(m, 0.5);
+        else if (rel !== null) this.release(m, rel);
         break;
       }
 
-      case 'strike':
-        // two quick steps into it
-        taker.run = Math.min(1, P.t / 0.3);
-        if (P.t >= 0.3) this.strike(m);
+      case 'runup': {
+        // theirs: they line it up, then the meter fills to where they let go
+        this.flushInput();
+        const a = P.them;
+        if (P.t < P.runup) { a.charging = false; a.dribble = P.t * 9; break; }
+        a.charging = true;
+        P.meter = (P.t - P.runup) / P.fill;
+        if (P.meter >= P.botRel) { P.meter = P.botRel; this.release(m, P.botRel); }
         break;
+      }
 
-      case 'runup':
-        // their kick: they run up; you can dive whenever you like
-        taker.run = Math.min(1, P.t / P.runup);
-        this.keeperInput(m, P.t - P.runup);
-        if (P.t >= P.runup) {
-          const a = P.wall ? PEN.fkBotAim(P.bot.aim, P.wall) : PEN.botAim(P.bot.aim);
-          // dive early and a good taker sees it and puts it the other way
-          if (!P.wall && P.dive && P.dive.td < -0.15 && Math.abs(P.dive.dx) > 0.3 && Math.random() < P.bot.sw) a.ax = -Math.sign(P.dive.dx) * rand(0.45, 0.85);
-          P.shot = PEN.kick(a.ax, a.az, a.power, P.bot.q, PEN.BOT_SLOW, P.wall);
-          this.strike(m);
-        }
+      case 'rise':
+        // up into the jump; the ball goes at the top of it
+        if (P.t >= 0.22) this.strike(m);
         break;
 
       case 'flight':
-        if (P.team === 'red') this.keeperInput(m, P.t);
-        this.pose(gk, P.dive, P.t);
-        if (P.t >= PEN.flightT(P.shot)) this.resolve(m);
+        if (P.t >= P.shot.T) this.resolve(m);
         break;
 
       case 'after':
-        this.pose(gk, P.dive, P.shot.T + P.t);
         if (P.t >= 2.1) this.next(m, false);
         break;
 
       case 'end':
-        if (P.t >= 2.6 && m.phase !== 'over') this.finish(m);
+        if (P.t >= 2.6 && m.phase !== 'over' && !P.chal) this.finish(m);
         break;
     }
   },
 
+  tick(P, dt) {
+    P.cheerT = Math.max(0, P.cheerT - dt);
+    P.shake = Math.max(0, P.shake - dt);
+    for (const a of [P.you, P.them]) if (a) { a.kickT = Math.max(0, a.kickT - dt); a.celebrateT = Math.max(0, a.celebrateT - dt); a.shootT = Math.max(0, a.shootT - dt); a.dribble += dt * 9; }
+  },
+
+  // Holding SHOOT fills the meter; letting go (or holding far too long) gives back how full it was.
+  // Both the queued edge and the live held state count: browsers can drop a pointer edge when focus
+  // changes, which used to leave SHOOT held on screen while nothing charged.
+  holdMeter(P, dt) {
+    const press = Input.consumeShootPress();
+    if ((press || Input.shootHeld) && !P.holding) {
+      P.holding = true; P.holdInputSeen = !!Input.shootHeld; P.holdT = 0; Sound.chargeStart();
+      const a = this.taker(P); if (a) a.charging = true;
+    }
+    let release = Input.consumeShootRelease();
+    if (!P.holding) return null;
+    if (Input.shootHeld) P.holdInputSeen = true;
+    if (P.holdInputSeen && !Input.shootHeld) release = true;
+    P.holdT += dt; P.meter = P.holdT / P.fill;
+    if (P.meter >= PEN.Z.LATE) { P.meter = PEN.Z.LATE; release = true; }
+    if (!release) return null;
+    P.holding = false; P.holdInputSeen = false; Sound.chargeStop();
+    return P.meter;
+  },
+
   flushInput() { Input.consumeShootPress(); Input.consumeShootRelease(); Input.consumeSkill(); Input.consumeSlide(); Input.consumePass(); if (Input.consumePassPress) Input.consumePassPress(); },
 
-  // you in goal: the stick picks where (up = high, down = low, centre = stay up), any button dives
-  keeperInput(m, tSinceKick) {
-    const P = m.pens;
-    const press = Input.consumeShootPress() | Input.consumeSkill() | Input.consumeSlide() | (Input.consumePassPress ? Input.consumePassPress() : false);
-    Input.consumeShootRelease(); Input.consumePass();
-    if (!press || P.dive) return;
-    P.dive = this.diveFrom(P, tSinceKick);
-    Sound.whoosh(true);
+  // the ball is let go of (offline: decided here)
+  release(m, rel) {
+    const P = m.pens, a = this.taker(P);
+    P.rel = rel; P.meter = rel; P.zoneSay = PEN_ZONE_SAY[PEN.zone(rel)];
+    const q = P.team === 'blue' ? P.q : P.bot.q;
+    P.shot = PEN.shot(rel, q, P.fk);
+    a.charging = true;
+    P.phase = 'rise'; P.t = 0;
   },
-  // Which way you dive: the stick (or WASD) if you are pushing it, otherwise wherever the mouse
-  // is pointing in the goal — point at a corner and click. Nothing at all: you stay up.
-  diveFrom(P, td) {
-    const mv = Input.move, l = Math.hypot(mv.x, mv.y);
-    if (l >= 0.25) return { dx: mv.x / l, dz: -mv.y / l, td, v: PEN.PLAYER_DIVE };
-    if (P.mouse) {
-      // the way from where the keeper stands (off to one side in a free kick) to the mouse
-      const dx = P.mouse.x * PEN.HW - (P.kx || 0), dz = P.mouse.z * PEN.HT - PEN.K.hip, d = Math.hypot(dx, dz);
-      if (d >= PEN.HW * 0.22) return { dx: dx / d, dz: dz / d, td, v: PEN.PLAYER_DIVE };
-    }
-    return { dx: 0, dz: 1, td, v: PEN.PLAYER_DIVE };
-  },
-
   strike(m) {
-    const P = m.pens, taker = this.taker(P);
-    taker.kickT = taker.kickDur; taker.faceX = P.shot.x < 0 ? -1 : 1; taker.fy = 0;
-    Sound.kick(0.4 + P.shot.power * 0.6);
-    if (P.team === 'blue') P.dive = P.wall ? PEN.fkBotDive(P.shot, P.bot.read, P.wall) : PEN.botDive(P.shot, P.bot.read);
+    const P = m.pens, a = this.taker(P);
+    a.charging = false; a.hasBall = false; a.shootT = 0.6; a.kickT = 0;
+    Sound.shoot(0.6);
     P.phase = 'flight'; P.t = 0;
   },
 
-  // the keeper sprite follows the model
-  pose(gk, dive, t) {
-    if (!dive) return;
-    gk.diveT = 1;
-    const side = dive.dx >= 0 ? 1 : -1;
-    gk.diveDir = side * TEAMS[gk.team].dir;
-  },
-
   resolve(m) {
-    const P = m.pens, s = P.shot, taker = this.taker(P), gk = this.goalie(P);
-    let res;
-    const couldGoIn = s.out === 'in' || ((s.out === 'post' || s.out === 'bar') && s.postIn);
-    if (s.out === 'wall') res = 'wall';
-    else if (couldGoIn && PEN.saves(P.dive, P.kx || 0, PEN.saveT(s), s.x, s.z)) res = 'save';
-    else if (s.out === 'in') res = 'goal';
-    else if (s.out === 'post' || s.out === 'bar') res = s.postIn ? (s.out === 'post' ? 'postIn' : 'barIn') : s.out;
-    else res = s.out;
-    const scored = res === 'goal' || res === 'postIn' || res === 'barIn';
+    const P = m.pens, s = P.shot, taker = this.taker(P);
+    const res = s.how, scored = !!s.made;
     P.result = res; P.say = PEN_SAY[res];
-    if (P.chal) return SkillRun.scoreKick(m, s, res);
-    P.kicks[P.team].push(scored);
-    m.score = { blue: P.kicks.blue.filter(Boolean).length, red: P.kicks.red.filter(Boolean).length };
-    // the catch-or-parry and where a rebound goes
-    P.after = { held: res === 'save' && s.v < 24 && Math.abs(s.x) < 2.2, side: Math.random() < 0.5 ? -1 : 1 };
+    if (P.chal) SkillRun.scoreShot(m, s);
+    else {
+      P.kicks[P.team].push(scored);
+      m.score = { blue: P.kicks.blue.filter(Boolean).length, red: P.kicks.red.filter(Boolean).length };
+      if (res === 'swish') P.swishes[P.team]++;
+    }
     if (P.team === 'blue') { m.human.stats.shots++; m.stats.blue.shots++; if (scored) m.human.stats.goals++; }
     else m.stats.red.shots++;
-    if (res === 'save') {
-      if (P.team === 'red') { P.saves++; m.keepers.blue.stats.saves++; m.stats.blue.saves++; } else { P.theirSaves++; m.keepers.red.stats.saves++; m.stats.red.saves++; }
-    }
+    this.react(P, taker, res, scored);
+  },
+  // the sound, the shooter, the crowd
+  react(P, taker, res, scored) {
+    if (res === 'swish') Sound.swish(); else if (res === 'boardIn' || res === 'long') { Sound.backboard(); if (scored) Sound.swish(); }
+    else if (res !== 'air') { Sound.rim(); if (scored) Sound.swish(); }
+    if (scored) { taker.celebrateT = CELE_TIME; taker.celebKind = P.team === 'blue' && !P.watch ? Save.celebration() : null; taker.fy = -1; }
+    else taker.sad = true;
     const good = (scored && P.team === 'blue') || (!scored && P.team === 'red');
-    if (scored) { Sound.net(); taker.celebrateT = CELE_TIME; taker.celebKind = P.team === 'blue' ? Save.celebration() : null; taker.fy = -1; }
-    else { taker.sad = true; if (res === 'save') { Sound.save(); gk.celebrateT = 1.4; } else if (res === 'post' || res === 'bar' || res === 'wall') Sound.post(); }
     if (good) { Sound.cheer(true); P.cheerT = 1.8; } else Sound.ooh();
-    P.shake = res === 'save' || res === 'post' || res === 'bar' || res === 'wall' ? 0.25 : scored ? 0.18 : 0;
+    P.shake = res === 'rimOut' || res === 'long' ? 0.18 : scored ? 0.12 : 0;
     P.phase = 'after'; P.t = 0;
   },
 
@@ -402,189 +278,144 @@ const Pens = {
     const P = m.pens, won = P.winner === 'blue';
     const mult = COIN_MULT[Save.data.settings.difficulty] || 1;
     const scored = m.score.blue;
-    const coins = Math.round((20 + scored * 8 + P.saves * 10 + (won ? 50 : 0)) * mult);
-    // you took every kick and kept goal: a win is all yours, a loss goes to their keeper
-    m.result = { outcome: won ? 'win' : 'loss', mvp: won ? m.human : m.keepers.red, coins, base: coins, challengeCoins: 0, cupBonus: 0, mult };
+    const coins = Math.round((20 + scored * 8 + P.swishes.blue * 4 + (won ? 50 : 0)) * mult);
+    const mvp = won ? m.human : (m.players.find((p) => p.team === 'red') || m.human);
+    m.result = { outcome: won ? 'win' : 'loss', mvp, coins, base: coins, challengeCoins: 0, cupBonus: 0, mult };
     m.phase = 'over';
     this.label(tl('SHOOT'));
     if (!Game.headless) UI.showResults(m);
   },
 
-  xp(m) { const P = m.pens; return 30 + m.score.blue * 15 + P.saves * 15 + (P.winner === 'blue' ? 50 : 0); },
+  xp(m) { const P = m.pens; return 30 + m.score.blue * 15 + P.swishes.blue * 5 + (P.winner === 'blue' ? 50 : 0); },
 
-  // ---------- server-authoritative online shootout ----------
-  // A kick online, as it happens (build 125):
-  //   pen.turn    whose kick it is. Everyone back to their places (nobody still celebrating, sulking,
-  //               mid-kick or lying in last kick's dive).
-  //   you shoot:  aim, hold, let go. Your run-up starts at once, here; the server is told (pen.shot).
-  //   pen.runup   the shooter has gone (the server's clock ran out for them, or a filled-in taker went):
-  //               the taker runs at the ball on everyone's screen.
-  //   pen.kick    the ball is struck: where it is going, and the keeper's dive if they went before it.
-  //   in goal:    dive whenever you like, before the kick or while the ball is in the air.
+  // ---------- server-authoritative online contest ----------
+  // A shot online, as it happens:
+  //   pen.turn    whose shot it is, and from where. Everyone back to their places.
+  //   you shoot:  hold, let go. You go up at once, here; the server is told (pen.shot).
+  //   pen.runup   the shooter has gone up (a filled-in shooter, or the clock ran out for you).
+  //   pen.kick    the ball has left the hand: what it will do.
   //   pen.result  what happened. It shows when the ball gets there.
-  // Nothing waits for the other player: the shooter never stands at the ball waiting for the keeper.
-  // A dive's picture runs on P.diveClock, the seconds since that dive began, so it carries on smoothly
-  // from before the kick into the flight, whichever screen it is seen on.
+  // Nothing waits for the other player.
   netTeam(P, team) { return team === P.serverSide ? 'blue' : 'red'; },
   netTurn(m, msg) {
     const P = m.pens; P.team = this.netTeam(P, msg.team); P.n = msg.n; P.phase = 'ready'; P.t = 0;
     // the server's deadline as time left on this device (its clock may not agree with the server's)
     const left = Number.isFinite(msg.in) ? msg.in : msg.deadline - Date.now();
     P.netDeadline = Date.now() + Math.max(0, Math.min(10000, left)); P.clock = Math.max(0, (P.netDeadline - Date.now()) / 1000);
-    P.shot = null; P.dive = null; P.diveClock = 0; P.ownDive = false; P.result = null; P.say = null; P.power = 0; P.holding = false; P.holdInputSeen = false; P.holdT = 0;
-    P.netSent = false; P.netShot = null; P.netResultData = null; P.runupT = 0.9; P.aim = { x: 0, z: 0.45 }; P.sway = { x: 0, z: 0 }; P.mouse = null;
+    this.resetShot(P);
+    P.netSent = false; P.netShot = null; P.netResultData = null; P.fill = PEN.fillT(); P.theirGo = 0;
     P.kicks = P.serverSide === 'blue' ? { blue: [...msg.kicks.blue], red: [...msg.kicks.red] } : { blue: [...msg.kicks.red], red: [...msg.kicks.blue] };
     m.score = P.serverSide === 'blue' ? { ...msg.score } : { blue: msg.score.red, red: msg.score.blue };
-    if (P.team === 'red') P.them = this.actor('red', false, P.takers[Math.floor(msg.n / 2) % 5].look, P.takers[Math.floor(msg.n / 2) % 5].number);
-    // everyone back to their places, as offline (next)
-    Object.assign(this.taker(P), { celebrateT: 0, celebKind: null, sad: false, kickT: 0, fy: -1, faceX: 0.001, run: 0, vx: 0, vy: 0 });
-    for (const k of Object.values(P.keeper)) Object.assign(k, { diveT: 0, celebrateT: 0, sad: false, hopT: 0 });
-    if (P.fk) this.setWall(P, msg.wall || null);
-    this.label(P.watch ? tl('WATCHING') : P.team === 'blue' ? tl('SHOOT') : tl('DIVE')); this.flushInput(); if (Game.state === 'intro') { $('intro').hidden = true; Game.state = 'match'; }
+    P.spot = P.fk ? -1 : Number.isFinite(msg.spot) ? msg.spot : this.spotFor(P, P.team);
+    if (P.team === 'red') P.them = this.actor('red', P.takers[Math.floor(msg.n / 2) % 5].look, P.takers[Math.floor(msg.n / 2) % 5].number);
+    this.freshTaker(this.taker(P));
+    this.label(P.watch ? tl('WATCHING') : tl('SHOOT')); this.flushInput(); if (Game.state === 'intro') { $('intro').hidden = true; Game.state = 'match'; }
   },
-  // joined part-way through a kick (back after a dropped connection, or come to watch): whose kick
-  // it is comes from the server, and their taker is made if this screen never saw them
+  // joined part-way through a shot (back after a dropped connection, or come to watch)
   netCatchUp(P, team, n) {
     P.team = this.netTeam(P, team); P.n = n;
-    if (P.team === 'red' && !P.them) P.them = this.actor('red', false, P.takers[Math.floor(n / 2) % 5].look, P.takers[Math.floor(n / 2) % 5].number);
-    // straight into it: the VS card would otherwise stay up until the next turn
+    if (P.team === 'red' && !P.them) P.them = this.actor('red', P.takers[Math.floor(n / 2) % 5].look, P.takers[Math.floor(n / 2) % 5].number);
     if (Game.state === 'intro') { $('intro').hidden = true; Game.state = 'match'; }
   },
-  // the shooter has gone: the taker runs at the ball
+  // the shooter has gone up
   netRunup(m, msg) {
     const P = m.pens;
     if (P.phase === 'wait' && !P.netShot) this.netCatchUp(P, msg.team, msg.n);
     if (msg.n !== P.n || P.netShot) return;
     if (P.team === 'blue' && !P.watch) {
-      // your kick, taken for you (the clock ran out before you let go): into your run-up
-      if (P.phase === 'aim' || P.phase === 'ready' || P.phase === 'wait') { if (P.holding) Sound.chargeStop(); P.holding = false; P.netSent = true; P.phase = 'strike'; P.t = 0; }
+      // your shot, taken for you (the clock ran out before you let go)
+      if (P.phase === 'aim' || P.phase === 'ready' || P.phase === 'wait') { if (P.holding) Sound.chargeStop(); P.holding = false; P.netSent = true; P.rel = 0.5; P.phase = 'rise'; P.t = 0; }
       return;
     }
-    if (P.phase === 'ready' || P.phase === 'idle' || P.phase === 'wait') { P.phase = 'runup'; P.t = 0; P.runupT = clamp((Number(msg.ms) || 300) / 1000, 0.15, 1.5); }
+    if (P.phase === 'ready' || P.phase === 'idle' || P.phase === 'wait') { P.phase = 'theirs'; P.t = 0; P.theirGo = clamp((Number(msg.ms) || 300) / 1000, 0.15, 1.5); const a = this.taker(P); if (a) a.charging = true; }
   },
-  // the ball is struck
+  // the ball has left the hand
   netKick(m, msg) {
     const P = m.pens;
     if (P.phase === 'wait' && !P.netShot) this.netCatchUp(P, msg.team, msg.n);
     if (msg.n !== P.n || P.netShot || !msg.shot) return;
     P.netShot = msg.shot;
-    // the keeper went before it was hit (on this screen that is someone else's dive, never your own)
-    if (msg.dive && !P.ownDive && !P.dive) { P.dive = { ...msg.dive, v: PEN.PLAYER_DIVE }; P.diveClock = -(Number(msg.dive.td) || 0); }
-    // your own run-up finishes first (netStep starts the flight at the end of it); done already, it goes now
-    if (P.phase !== 'strike' || P.t >= 0.3) this.netStrike(m);
+    if (P.team === 'red' || P.watch) { P.rel = msg.shot.rel; P.meter = msg.shot.rel; P.zoneSay = PEN_ZONE_SAY[PEN.zone(msg.shot.rel)]; }
+    // your own jump finishes first (netStep lets go at the top of it); done already, it goes now
+    if (P.phase !== 'rise' || P.t >= 0.22) this.netStrike(m);
   },
   netStrike(m) {
-    const P = m.pens, taker = this.taker(P);
+    const P = m.pens, a = this.taker(P);
     P.shot = P.netShot; P.phase = 'flight'; P.t = 0;
-    taker.run = 1; taker.kickT = taker.kickDur; taker.faceX = P.shot.x < 0 ? -1 : 1; taker.fy = 0; Sound.kick(0.4 + P.shot.power * 0.6);
+    a.charging = false; a.hasBall = false; a.shootT = 0.6; Sound.shoot(0.6);
   },
   netResult(m, msg) {
     const P = m.pens;
-    // a result for a kick this screen never saw start (back after a dropped connection): play it all
-    if (!P.netShot || msg.n - 1 !== P.n) { this.netCatchUp(P, msg.team, msg.n - 1); P.netShot = msg.shot; P.dive = null; P.ownDive = false; P.phase = 'wait'; }
+    // a result for a shot this screen never saw start (back after a dropped connection): play it all
+    if (!P.netShot || msg.n - 1 !== P.n) { this.netCatchUp(P, msg.team, msg.n - 1); P.netShot = msg.shot; P.phase = 'wait'; }
     P.netResultData = msg;
-    // the keeper's dive as the server had it, for anyone who has not seen it yet (never your own:
-    // yours is already on screen from the moment you pressed)
-    if (msg.dive && !P.ownDive && !P.dive) { const since = P.phase === 'flight' ? P.t : 0; P.dive = { ...msg.dive, v: PEN.PLAYER_DIVE }; P.diveClock = since - (Number(msg.dive.td) || 0); }
-    if (P.phase !== 'flight' && P.phase !== 'strike' && P.phase !== 'after') this.netStrike(m);
+    if (P.phase !== 'flight' && P.phase !== 'rise' && P.phase !== 'after') this.netStrike(m);
   },
   netApply(m) {
-    const P = m.pens, r = P.netResultData, taker = this.taker(P), gk = this.goalie(P);
-    P.result = r.result; P.say = PEN_SAY[r.result]; P.kicks = P.serverSide === 'blue' ? { blue: [...r.kicks.blue], red: [...r.kicks.red] } : { blue: [...r.kicks.red], red: [...r.kicks.blue] };
-    m.score = P.serverSide === 'blue' ? { ...r.score } : { blue: r.score.red, red: r.score.blue }; P.after = { held: r.result === 'save' && P.shot.v < 24 && Math.abs(P.shot.x) < 2.2, side: Math.random() < 0.5 ? -1 : 1 };
+    const P = m.pens, r = P.netResultData, taker = this.taker(P);
+    P.result = r.result; P.say = PEN_SAY[r.result] || PEN_SAY.rimOut;
+    P.kicks = P.serverSide === 'blue' ? { blue: [...r.kicks.blue], red: [...r.kicks.red] } : { blue: [...r.kicks.red], red: [...r.kicks.blue] };
+    m.score = P.serverSide === 'blue' ? { ...r.score } : { blue: r.score.red, red: r.score.blue };
+    if (r.result === 'swish') P.swishes[P.team]++;
     if (P.team === 'blue') { m.human.stats.shots++; m.stats.blue.shots++; if (r.scored) m.human.stats.goals++; }
-    if (r.result === 'save' && P.team === 'red') { P.saves++; m.keepers.blue.stats.saves++; m.stats.blue.saves++; }
-    if (r.scored) { Sound.net(); taker.celebrateT = CELE_TIME; taker.celebKind = P.team === 'blue' ? Save.celebration() : null; taker.fy = -1; } else { taker.sad = true; if (r.result === 'save') { Sound.save(); gk.celebrateT = 1.4; } else if (r.result === 'wall' || r.result === 'post' || r.result === 'bar') Sound.post(); }
-    const good = (r.scored && P.team === 'blue') || (!r.scored && P.team === 'red');
-    if (good) { Sound.cheer(true); P.cheerT = 1.8; } else Sound.ooh();
-    P.shake = r.result === 'save' || r.result === 'post' || r.result === 'bar' || r.result === 'wall' ? 0.25 : r.scored ? 0.18 : 0;
-    P.phase = 'after'; P.t = 0; P.netResultData = null;
+    P.netResultData = null;
+    this.react(P, taker, r.result, !!r.scored);
   },
-  // in goal: any button dives (the stick or the mouse says where), once a kick
-  netKeeper(P) {
-    const press = Input.consumeShootPress() | Input.consumeSkill() | Input.consumeSlide() | (Input.consumePassPress ? Input.consumePassPress() : false);
-    Input.consumeShootRelease(); Input.consumePass();
-    if (!press || P.dive || P.netSent) return;
-    P.dive = { ...this.diveFrom(P, 0), v: PEN.PLAYER_DIVE }; P.diveClock = 0; P.ownDive = true; P.netSent = true;
-    // lt: how long after this screen saw the ball struck (the server allows for the trip here)
-    Net.send({ t: 'pen.dive', dx: P.dive.dx, dz: P.dive.dz, lt: P.phase === 'flight' ? Math.round(P.t * 1000) / 1000 : -1 });
-    Sound.whoosh(true);
-  },
-  // your kick: aim, hold for power, let go (the same as offline, including the repair for a dropped
-  // pointer edge: see 'aim' in step)
+  // your shot: hold, let go (the same meter as offline)
   netAim(m, dt) {
-    const P = m.pens, mv = Input.move;
-    if (Math.hypot(mv.x, mv.y) > 0.05) P.mouse = null;
-    if (P.mouse) { P.aim.x += (P.mouse.x - P.aim.x) * Math.min(1, dt * 14); P.aim.z += (P.mouse.z - P.aim.z) * Math.min(1, dt * 14); } else { P.aim.x += mv.x * 1.25 * dt; P.aim.z -= mv.y * 1.1 * dt; }
-    P.aim.x = clamp(P.aim.x, -1.08, 1.08); P.aim.z = clamp(P.aim.z, 0.03, 1.1);
-    const wob = 0.035 + (1 - P.q) * 0.05; P.sway = { x: Math.sin(P.t * 2.3) * wob, z: Math.sin(P.t * 1.7 + 1) * wob * 0.8 };
-    const press = Input.consumeShootPress();
-    if ((press || Input.shootHeld) && !P.holding) { P.holding = true; P.holdInputSeen = !!Input.shootHeld; P.holdT = 0; Sound.chargeStart(); }
-    let release = Input.consumeShootRelease();
-    if (P.holding) {
-      if (Input.shootHeld) P.holdInputSeen = true;
-      if (P.holdInputSeen && !Input.shootHeld) release = true;
-      P.holdT += dt; P.power = Math.min(1, P.holdT / 0.85);
-      if (P.holdT >= 1.6) release = true;
-    }
+    const P = m.pens;
+    const rel = this.holdMeter(P, dt);
     P.clock = Math.max(0, (P.netDeadline - Date.now()) / 1000);
-    if (P.clock <= 0 && !P.holding) { P.holding = true; P.power = 0.58; release = true; }
-    if (release && P.holding && !P.netSent) {
-      P.holding = false; P.holdInputSeen = false; P.netSent = true; Sound.chargeStop();
-      Net.send({ t: 'pen.shot', ax: P.aim.x + P.sway.x, az: P.aim.z + P.sway.z, power: P.power });
-      P.phase = 'strike'; P.t = 0;   // straight into your run-up: nothing waits for the keeper
+    const go = rel !== null ? rel : P.clock <= 0 && !P.holding ? 0.5 : null;
+    if (go !== null && !P.netSent) {
+      P.netSent = true; P.rel = go; P.meter = go; P.zoneSay = PEN_ZONE_SAY[PEN.zone(go)];
+      Net.send({ t: 'pen.shot', rel: Math.round(go * 1000) / 1000 });
+      const a = this.taker(P); a.charging = true;
+      P.phase = 'rise'; P.t = 0;   // straight up: nothing waits
     }
   },
   netStep(m, dt) {
-    const P = m.pens; P.t += dt; P.cheerT = Math.max(0, P.cheerT - dt); P.shake = Math.max(0, P.shake - dt);
-    // the same clocks offline runs: a celebration, a kick and a hop all end
-    for (const a of [P.you, P.them, P.keeper.blue, P.keeper.red]) if (a) { a.kickT = Math.max(0, a.kickT - dt); a.celebrateT = Math.max(0, a.celebrateT - dt); a.hopT = Math.max(0, a.hopT - dt); }
-    if (P.dive) P.diveClock += dt;
-    const taker = this.taker(P), gk = this.goalie(P);
-    const shooting = P.team === 'blue' && !P.watch, keeping = P.team === 'red' && !P.watch;
+    const P = m.pens; P.t += dt; this.tick(P, dt);
+    const shooting = P.team === 'blue' && !P.watch;
     switch (P.phase) {
       case 'ready':
         if (P.t > 0.65) { P.phase = shooting ? 'aim' : 'idle'; P.t = 0; Sound.whistle(); this.flushInput(); }
         return;
       case 'aim': this.netAim(m, dt); return;
-      case 'strike':
-        // your two quick steps into it; the ball goes when they are done and the server has struck it
-        taker.run = Math.min(1, P.t / 0.3);
-        if (P.t >= 0.3 && P.netShot) this.netStrike(m);
+      case 'rise':
+        if (P.t >= 0.22 && P.netShot) this.netStrike(m);
         return;
       case 'idle':
-        // they are lining it up: the taker waits behind the ball, and in goal you can go early
-        taker.run = 0;
-        if (keeping) this.netKeeper(P);
+        // they are lining it up
+        this.flushInput();
         return;
-      case 'runup':
-        taker.run = Math.min(1, P.t / P.runupT);
-        if (keeping) this.netKeeper(P);
+      case 'theirs':
+        // they have gone up: the meter fills to wherever they let go (it shows when pen.kick says)
+        this.flushInput();
+        P.meter = Math.min(P.netShot ? P.netShot.rel : 1.1, P.t / Math.max(0.2, P.theirGo));
         return;
       case 'flight':
-        if (keeping) this.netKeeper(P);
-        this.pose(gk, P.dive, P.t);
-        if (P.t >= PEN.flightT(P.shot) && P.netResultData) this.netApply(m);
-        return;
-      case 'after':
-        this.pose(gk, P.dive, P.shot.T + P.t);
+        if (P.t >= P.shot.T && P.netResultData) this.netApply(m);
         return;
     }
   },
+
   // ---------- the picture ----------
+  // A camera behind the shooter, looking at the rim; it goes round the arc with the spot. Everything
+  // on the court is in metres: (u, v) on the floor with the middle of the rim at 0 (u out towards
+  // half-way, v across), z up. view() turns that into the screen.
   layout(W, H, fk = false) {
     const L = this._lay;
     if (L && L.W === W && L.H === H && L.fk === fk) return L;
     const portrait = W < H;
-    // a free kick is twice as far out: the goal looks smaller and the wall stands in between
-    const gw = (portrait ? W * 0.84 : Math.min(W * 0.56, H * 1.2)) * (fk ? 0.6 : 1);
-    const s = gw / (PEN.HW * 2), gh = PEN.HT * s;
-    const gy = portrait ? H * 0.42 : Math.max(gh + H * 0.2, H * 0.52);
-    const spot = { x: W / 2, y: portrait ? H * 0.74 : H * 0.86 };
-    const near = portrait ? 1.9 : 2.0;
-    // the top of the stand is open: sky, whatever you can see of the country beyond it, then the roof
-    const sky = Math.min(gy * 0.34, H * 0.22), roofH = Math.max(6, gy * 0.045);
-    const lay = { W, H, fk, gw, gh, s, gx: W / 2, gy, spot, near, board: gh * 0.22, crowd: null, sky, roofH, corner: null };
+    // the focal length and the horizon, so the backboard's top and the shooter's feet both fit
+    const f = portrait ? Math.min(W * 1.5, H * 0.8) : H * 1.12;
+    const y0 = portrait ? H * 0.4 : H * 0.35;
+    const lay = { W, H, fk, f, y0, camH: 2.6, back: 5.2, side: -0.9, cx: W / 2, crowd: null, corner: null };
+    // the far end: where the stand meets the floor (the same for every spot: it is a long way off)
+    lay.standY = y0 + lay.camH * f / ((fk ? PEN.RFT : PEN.R3) + lay.back + 4.2);
+    lay.sky = Math.min(lay.standY * 0.34, H * 0.2); lay.roofH = Math.max(6, lay.standY * 0.045);
+    lay.board = Math.max(14, (H - lay.standY) * 0.06);
     // the pause button lives in the top corner over the canvas: remember where, so the scorecard
     // can keep out of its way on a narrow screen
     const pauseEl = typeof $ === 'function' ? $('btn-pause') : null;
@@ -592,10 +423,10 @@ const Pens = {
       const r = pauseEl.getBoundingClientRect();
       if (r.width > 1 && r.height > 1) lay.corner = { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
     }
-    // the crowd behind the goal, placed once per screen size
+    // the crowd behind the hoop, placed once per screen size
     const rng = mulberry32(7), crowd = [];
-    const rowH = Math.max(10, gh * 0.12), top = gy - lay.board;
-    for (let y = top - rowH * 0.3, row = 0; y > sky + roofH; y -= rowH * 0.78, row++) {
+    const rowH = Math.max(10, H * 0.03), top = lay.standY - lay.board;
+    for (let y = top - rowH * 0.3, row = 0; y > lay.sky + lay.roofH; y -= rowH * 0.78, row++) {
       const size = rowH * Math.max(0.3, 0.5 - row * 0.012);
       for (let x = (row % 2) * size * 0.6 - size; x < W + size; x += size * 1.25 + rng() * size * 0.5) crowd.push({ x, y, size: Math.max(4, size), c: (rng() * 8) | 0, skin: (rng() * 4) | 0, ph: rng() * 6 });
     }
@@ -603,48 +434,44 @@ const Pens = {
     this._lay = lay;
     return lay;
   },
-
-  // goal-plane metres -> screen
-  gp(L, x, z) { return { x: L.gx + x * L.s, y: L.gy - z * L.s }; },
-  // u of the way from the ball (0) to the goal line (1): how far up the screen that is, and how many
-  // pixels a metre is there (the ball's own flight uses the same curve, so the wall, the lines and
-  // the ball all agree about where things are)
-  depth(L, u) { const k = 1.6; return { e: (u * (1 + k)) / (1 + k * u), pm: 1 / lerp(1 / (L.s * L.near), 1 / L.s, u) }; },
-  // a goal-plane point (x across, z up) seen at u of the way there, with a free kick's loop on top
-  along(L, s, u) {
-    const g = this.gp(L, s.x, s.z), d = this.depth(L, u);
-    let y = lerp(L.spot.y, g.y, d.e);
-    if (s.fk) y -= PEN.fkArc(s.power) * 4 * u * (1 - u) * d.pm;
-    return { x: lerp(L.spot.x, g.x, d.e), y, r: 0.11 * d.pm };
+  // the camera for a spot: where it stands and which way it looks
+  cam(L, spot) {
+    const th = spot < 0 ? 0 : PEN.ANGLES[spot], R = spot < 0 ? PEN.RFT : PEN.R3;
+    const c = Math.cos(th), s = Math.sin(th), D = R + L.back;
+    return { th, R, cu: D * c, cv: D * s, fu: -c, fv: -s, ru: -s, rv: c };
   },
+  // court metres -> screen. Behind the camera gives null.
+  view(L, C, u, v, z) {
+    const du = u - C.cu, dv = v - C.cv;
+    const Y = du * C.fu + dv * C.fv, X = du * C.ru + dv * C.rv;
+    if (Y < 0.4) return null;
+    const k = L.f / Y;
+    return { x: L.cx + X * k, y: L.y0 - (z - L.camH) * k, k };
+  },
+  // where the shooter stands, and so where the ball leaves from (a little to the left of the camera's line)
+  shooterAt(L, C) { const D = C.R; return { u: D * Math.cos(C.th) + L.side * C.ru, v: D * Math.sin(C.th) + L.side * C.rv }; },
 
   draw(m, dt, t) {
     const ctx = Render.ctx, W = Render.W, H = Render.H, P = m.pens, L = this.layout(W, H, !!P.fk);
     ctx.setTransform(Render.dpr, 0, 0, Render.dpr, 0, 0);
-    const shake = P.shake > 0 ? P.shake * 18 : 0;
+    const shake = P.shake > 0 ? P.shake * 14 : 0;
     ctx.save();
     if (shake) ctx.translate(rand(-shake, shake), rand(-shake, shake));
-    // the stands and pitch never change during a shootout: one picture, stamped each frame (the
-    // crowd alone is thousands of shapes); a cheer bounces the crowd part of it
     const bg = this.backdrop(L);
     ctx.drawImage(bg, 0, 0, W, H);
-    if (P.cheerT > 0) { const hop = Math.abs(Math.sin(t * 10)) * L.gh * 0.035, ch = L.gy - L.board; ctx.drawImage(bg, 0, 0, bg.width, ch * (bg.height / H), 0, -hop, W, ch); }
-    const ball = this.ballPos(L, P);
-    this.drawNet(ctx, L, P, ball);
+    if (P.cheerT > 0) { const hop = Math.abs(Math.sin(t * 10)) * H * 0.008, ch = L.standY - L.board; ctx.drawImage(bg, 0, 0, bg.width, ch * (bg.height / H), 0, -hop, W, ch); }
+    const C = this.cam(L, P.spot);
+    this.drawFloor(ctx, L, C);
+    const ball = this.ballPos(L, C, P, t);
+    // the ball is behind the hoop when it is past the rim's plane and dropping through or behind it
+    const hoopBack = this.drawHoop(ctx, L, C, P, t, ball);
     if (ball && ball.behind) this.drawBall(ctx, ball, t);
-    this.drawFrame(ctx, L);
-    this.drawKeeper(ctx, L, P, t);
-    // a free kick: the wall stands between; the ball is drawn in front of it until it has passed it
-    const pastWall = ball && ball.u !== undefined && ball.u > PEN.FK.AT / PEN.FK.DIST;
-    if (ball && pastWall && !ball.behind && !ball.atSpot) this.drawBall(ctx, ball, t);
-    if (P.wall) this.drawWall(ctx, L, P, t);
-    if (ball && !pastWall && !ball.behind && !ball.atSpot) this.drawBall(ctx, ball, t);
-    if (ball && ball.atSpot) this.drawBall(ctx, ball, t);
-    this.drawTaker(ctx, L, P, t);
+    hoopBack();
+    this.drawTaker(ctx, L, C, P, t);
+    if (ball && !ball.behind) this.drawBall(ctx, ball, t);
     ctx.restore();
-    // the season's snow, blossom or leaves blow across the shootout too (build 121)
     Render.drawWeather(ctx, t, { W, H, S: Render.S, st: Save.stadium(), seasonOnly: true, px: () => -999, py: () => -999, k: () => 1 });
-    this.drawOverlay(ctx, L, P, t);
+    this.drawOverlay(ctx, L, C, P, t);
   },
 
   backdrop(L) {
@@ -656,15 +483,20 @@ const Pens = {
     const g = c.getContext('2d');
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.drawStands(g, L, { cheerT: 0 }, 0);
-    this.drawGrass(g, L);
+    // the floor, in the court's own wood
+    const cs = Render.courtStyle(st);
+    g.fillStyle = cs.floor; g.fillRect(0, L.standY, L.W, L.H - L.standY);
+    // boards (or the painted court's bands) that get wider as they come nearer
+    g.fillStyle = cs.wood ? cs.plank : shadeHex(cs.floor, -0.05);
+    let y = L.standY, h = Math.max(3, (L.H - L.standY) * 0.025), i = 0;
+    while (y < L.H) { if (i % 2) g.fillRect(0, y, L.W, h); y += h; h *= 1.12; i++; }
     L.bg = c; L.bgKey = key;
     return c;
   },
 
   drawStands(ctx, L, P, t) {
     const st = Save.stadium();
-    const sky = L.sky, roofY = sky, roofH = L.roofH;
-    // --- the sky over the stand
+    const sky = L.sky, roofY = sky, roofH = L.roofH, standY = L.standY;
     ctx.fillStyle = st.sky ? st.sky[1] : '#a8dcff'; ctx.fillRect(0, 0, L.W, sky);
     ctx.fillStyle = st.sky ? st.sky[0] : '#6fc2ff'; ctx.fillRect(0, 0, L.W, sky * 0.5);
     const rs = mulberry32(11);
@@ -681,10 +513,8 @@ const Pens = {
         ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.arc(cx + r, cy + r * 0.2, r * 0.8, 0, Math.PI * 2); ctx.arc(cx - r, cy + r * 0.2, r * 0.7, 0, Math.PI * 2); ctx.fill();
       }
     }
-    // --- the country beyond the stand
     if (typeof drawSkyline === 'function') drawSkyline(ctx, st, -L.W * 0.04, L.W * 1.04, sky + 1, sky * 0.78);
-    // --- the stand, with its roof in the country's colours
-    ctx.fillStyle = st.stands[0]; ctx.fillRect(0, roofY, L.W, L.gy - roofY);
+    ctx.fillStyle = st.stands[0]; ctx.fillRect(0, roofY, L.W, standY - roofY);
     ctx.fillStyle = st.roof || st.stands[1]; ctx.fillRect(0, roofY, L.W, roofH);
     ctx.fillStyle = st.trim || '#ffe14d'; ctx.fillRect(0, roofY + roofH - Math.max(2, roofH * 0.22), L.W, Math.max(2, roofH * 0.22));
     ctx.fillStyle = OUTLINE; ctx.fillRect(0, roofY - 3, L.W, 3); ctx.fillRect(0, roofY + roofH, L.W, 3);
@@ -697,7 +527,6 @@ const Pens = {
         for (let q = 0; q < 3; q++) ctx.fillRect(lx - lw / 2 + lw * (0.12 + q * 0.3), roofY - lh * 0.72, lw * 0.18, lh * 0.45);
       }
     }
-    // --- the crowd, with the flag held up in the middle of them
     const cols = [TEAMS.blue.jersey, TEAMS.red.jersey, '#ffffff', '#ffe14d', TEAMS.blue.jersey, '#ff8a1f', TEAMS.red.jersey, '#46d9ff'];
     const skins = ['#f2c29b', '#d99a6c', '#a86b43', '#6b4228'];
     const jump = P.cheerT > 0 ? 1 : 0;
@@ -706,22 +535,18 @@ const Pens = {
       const hop = jump ? Math.abs(Math.sin(t * 9 + f.ph)) * f.size * 0.5 : Math.sin(t * 2 + f.ph) * f.size * 0.04;
       const y = f.y - hop;
       const card = tf ? this.tifoColor(tf, f.x, f.y) : null;
-      if (card) {
-        ctx.fillStyle = card;
-        ctx.fillRect(f.x - f.size * 0.62, y - f.size * 0.42, f.size * 1.24, f.size * 1.24);
-        continue;
-      }
+      if (card) { ctx.fillStyle = card; ctx.fillRect(f.x - f.size * 0.62, y - f.size * 0.42, f.size * 1.24, f.size * 1.24); continue; }
       ctx.fillStyle = cols[f.c]; ctx.fillRect(f.x - f.size * 0.45, y, f.size * 0.9, f.size * 0.9);
       ctx.fillStyle = skins[f.skin]; ctx.beginPath(); ctx.arc(f.x, y - f.size * 0.2, f.size * 0.32, 0, Math.PI * 2); ctx.fill();
       if (jump && f.c % 3 === 0) { ctx.fillStyle = cols[f.c]; ctx.fillRect(f.x - f.size * 0.55, y - f.size * 0.75, f.size * 0.2, f.size * 0.5); }
     }
-    // --- advertising boards along the goal line: the ground and what its fans sing
-    const by = L.gy - L.board;
+    // the boards along the baseline: the arena and what its fans sing
+    const by = standY - L.board;
     ctx.fillStyle = shadeHex(st.seat || '#1b2a6b', -0.45); ctx.fillRect(0, by, L.W, L.board);
-    ctx.fillStyle = OUTLINE; ctx.fillRect(0, by - 3, L.W, 3); ctx.fillRect(0, L.gy - 3, L.W, 3);
+    ctx.fillStyle = OUTLINE; ctx.fillRect(0, by - 3, L.W, 3); ctx.fillRect(0, standY - 3, L.W, 3);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const fs = L.board * 0.5;
-    const words = [st.name || 'MINI STRIKERS', st.chant || tl("LET'S GO!")];
+    const words = [st.name || 'MINI DUNKERS', st.chant || tl("LET'S GO!")];
     ctx.font = `400 ${fs}px "Lilita One", system-ui, sans-serif`;
     let bx = -((t * 20) % 900);
     for (let i = 0; bx < L.W + 400; i++) {
@@ -737,7 +562,7 @@ const Pens = {
   tifo(L) {
     const club = (typeof Clubs !== 'undefined' && (Clubs.home || (Clubs.mine && Clubs.mine()))) || null;
     if (!club || typeof document === 'undefined' || typeof UI === 'undefined' || !UI.flagBadge) return null;
-    const key = club.id + '|' + Math.round(L.W) + 'x' + Math.round(L.gy);
+    const key = club.id + '|' + Math.round(L.W) + 'x' + Math.round(L.standY);
     if (this._tifo && this._tifo.key === key) return this._tifo.box;
     let box = null;
     try {
@@ -745,16 +570,12 @@ const Pens = {
       cv.width = cw; cv.height = ch;
       UI.flagBadge(cv, club);
       const pix = cv.getContext('2d').getImageData(0, 0, cw, ch).data;
-      const standTop = L.sky + L.roofH, standH = L.gy - L.board - standTop;
-      const gl = L.gx - L.gw / 2, gr = L.gx + L.gw / 2;
+      const standTop = L.sky + L.roofH, standH = L.standY - L.board - standTop;
       const y0 = standTop + standH * 0.16, h = standH * 0.56;
-      const pad = L.W * 0.015;
-      const blocks = [];
-      if (gl - pad * 2 > L.W * 0.1) blocks.push({ x0: pad, x1: gl - pad, y0, y1: y0 + h });
-      if (L.W - gr - pad * 2 > L.W * 0.1) blocks.push({ x0: gr + pad, x1: L.W - pad, y0, y1: y0 + h });
-      if (!blocks.length) blocks.push({ x0: L.W * 0.27, x1: L.W * 0.73, y0, y1: y0 + h });
+      const pad = L.W * 0.015, mid = L.W * 0.17;
+      const blocks = [{ x0: pad, x1: L.W / 2 - mid, y0, y1: y0 + h }, { x0: L.W / 2 + mid, x1: L.W - pad, y0, y1: y0 + h }].filter((b) => b.x1 - b.x0 > L.W * 0.1);
       for (const b of blocks) { b.w = b.x1 - b.x0; b.h = b.y1 - b.y0; }
-      box = { blocks, pix, cw, ch };
+      box = blocks.length ? { blocks, pix, cw, ch } : null;
     } catch (e) { box = null; }
     this._tifo = { key, box };
     return box;
@@ -769,339 +590,314 @@ const Pens = {
     return `rgb(${tf.pix[i]},${tf.pix[i + 1]},${tf.pix[i + 2]})`;
   },
 
-  drawGrass(ctx, L) {
-    const st = Save.stadium(), g = st.grass;
-    const a = g[0][0], b = g[1][0];
-    let y = L.gy, i = 0, h = L.gh * 0.12;
-    while (y < L.H) { ctx.fillStyle = i % 2 ? a : b; ctx.fillRect(0, y, L.W, h + 1); y += h; h *= 1.18; i++; }
-    // the lines: goal line, the six-yard box, the spot
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, L.gy - 1, L.W, Math.max(3, L.s * 0.08));
-    const lw = Math.max(3, L.s * 0.09);
-    if (L.fk) {
-      // the six-yard box 5.5 m out, the edge of the penalty area 16.5 m out (the ball is 22 m out)
-      const at = (m) => L.spot.y + (L.gy - L.spot.y) * this.depth(L, 1 - m / PEN.FK.DIST).e;
-      const six = at(5.5), edge = at(16.5);
-      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = lw; ctx.lineJoin = 'miter';
-      const x1 = L.gx - L.gw * 0.78, x2 = L.gx + L.gw * 0.78, x1b = L.gx - L.gw * 0.92, x2b = L.gx + L.gw * 0.92;
-      ctx.beginPath(); ctx.moveTo(x1, L.gy); ctx.lineTo(x1b, six); ctx.lineTo(x2b, six); ctx.lineTo(x2, L.gy); ctx.stroke();
-      ctx.lineWidth = Math.max(3, lw * 1.3);
-      ctx.beginPath(); ctx.moveTo(0, edge); ctx.lineTo(L.W, edge); ctx.stroke();
-      return;
-    }
-    const box = L.gy + (L.spot.y - L.gy) * 0.3;
-    const x1 = L.gx - L.gw * 0.78, x2 = L.gx + L.gw * 0.78, x1b = L.gx - L.gw * 0.86, x2b = L.gx + L.gw * 0.86;
-    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = lw; ctx.lineJoin = 'miter';
-    ctx.beginPath(); ctx.moveTo(x1, L.gy); ctx.lineTo(x1b, box); ctx.lineTo(x2b, box); ctx.lineTo(x2, L.gy); ctx.stroke();
-    // where the ball touches the grass: it used to be painted lower, so the ball hung in the air above it
-    ctx.beginPath(); ctx.ellipse(L.spot.x, L.spot.y, L.s * L.near * 0.16, L.s * L.near * 0.07, 0, 0, Math.PI * 2); ctx.fill();
-  },
-
-  // the goal: net first (the ball can end up in it), then the frame over it
-  drawNet(ctx, L, P, ball) {
-    const x0 = L.gx - L.gw / 2, x1 = L.gx + L.gw / 2, top = L.gy - L.gh;
-    const inset = L.gw * 0.05, back = { x0: x0 + inset, x1: x1 - inset, top: top + L.gh * 0.1 };
-    ctx.fillStyle = 'rgba(22, 26, 51, 0.28)';
-    ctx.fillRect(x0, top, L.gw, L.gh);
-    // a goal pushes the net back around where it went in
-    const hit = P.result && ball && ball.inNet ? { x: ball.hitX, y: ball.hitY, k: ball.bulge } : null;
-    const bend = (x, y) => {
-      if (!hit) return [x, y];
-      const d = Math.hypot(x - hit.x, y - hit.y), r = L.gh * 0.55;
-      if (d > r) return [x, y];
-      const f = (1 - d / r) * 0.28 * hit.k;
-      return [x + (hit.x - x) * f, y + (hit.y - y) * f];
-    };
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)'; ctx.lineWidth = Math.max(1, L.s * 0.025);
-    // A whole number of squares across and down, so the last line IS the edge. It used to step a fixed
-    // size from the left and stop short of the right, which left the back of the net hanging loose of
-    // the right-hand side netting.
-    const cols = Math.max(1, Math.round((back.x1 - back.x0) / (L.gw / 22))), dx = (back.x1 - back.x0) / cols;
-    const rows = Math.max(1, Math.round((L.gy - back.top) / dx)), dy = (L.gy - back.top) / rows;
-    for (let i = 0; i <= cols; i++) {
-      const x = back.x0 + dx * i;
-      ctx.beginPath();
-      for (let j = 0; j <= rows * 2; j++) { const [px, py] = bend(x, back.top + (dy / 2) * j); if (j === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py); }
+  // the lines on the floor for this spot: the baseline, the painted key, the free-throw circle, the arc
+  drawFloor(ctx, L, C) {
+    const line = (pts, close, fill) => {
+      const sp = [];
+      for (const [u, v] of pts) { const p = this.view(L, C, u, v, 0); if (p) sp.push(p); }
+      if (sp.length < 2) return;
+      ctx.beginPath(); sp.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      if (close) ctx.closePath();
+      if (fill) { ctx.fillStyle = fill; ctx.fill(); }
       ctx.stroke();
-    }
-    for (let j = 0; j <= rows; j++) {
-      const y = back.top + dy * j;
-      ctx.beginPath();
-      for (let i = 0; i <= cols * 2; i++) { const [px, py] = bend(back.x0 + (dx / 2) * i, y); if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py); }
-      ctx.stroke();
-    }
-    // side and roof netting
-    ctx.beginPath();
-    for (let i = 0; i <= 4; i++) {
-      const u = i / 4;
-      ctx.moveTo(x0, top + L.gh * u); ctx.lineTo(back.x0, back.top + (L.gy - back.top) * u);
-      ctx.moveTo(x1, top + L.gh * u); ctx.lineTo(back.x1, back.top + (L.gy - back.top) * u);
-    }
-    for (let i = 0; i <= 10; i++) { const u = i / 10; ctx.moveTo(x0 + L.gw * u, top); ctx.lineTo(back.x0 + (back.x1 - back.x0) * u, back.top); }
-    ctx.stroke();
-  },
-
-  drawFrame(ctx, L) {
-    const pw = Math.max(5, L.s * 0.12), x0 = L.gx - L.gw / 2, x1 = L.gx + L.gw / 2, top = L.gy - L.gh;
-    const bar = (x, y, w, h) => {
-      ctx.fillStyle = OUTLINE; ctx.fillRect(x + 3, y + 3, w, h); // hard shadow
-      ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, w, h);
-      ctx.strokeStyle = OUTLINE; ctx.lineWidth = 2.5; ctx.strokeRect(x, y, w, h);
     };
-    bar(x0 - pw, top - pw, pw, L.gh + pw);
-    bar(x1, top - pw, pw, L.gh + pw);
-    bar(x0 - pw, top - pw, L.gw + pw * 2, pw);
+    const arc = (cu, cv, r, a0, a1, n = 40) => { const out = []; for (let i = 0; i <= n; i++) { const a = lerp(a0, a1, i / n); out.push([cu + Math.cos(a) * r, cv + Math.sin(a) * r]); } return out; };
+    ctx.strokeStyle = 'rgba(255,255,255,0.92)'; ctx.lineWidth = Math.max(2.5, L.H * 0.006); ctx.lineJoin = 'round';
+    const BL = -1.575, FT = 4.225;
+    // the key, painted
+    ctx.globalAlpha = 0.62; line([[BL, -2.45], [FT, -2.45], [FT, 2.45], [BL, 2.45]], true, TEAMS.blue.jersey); ctx.globalAlpha = 1;
+    line([[BL, -2.45], [FT, -2.45], [FT, 2.45], [BL, 2.45]], true);
+    // the free-throw circle and the baseline
+    line(arc(FT, 0, 1.8, -Math.PI / 2, Math.PI / 2));
+    line([[BL, -8], [BL, 8]]);
+    // the three-point line: straight in the corners, then the arc
+    const side = 6.6, meet = Math.sqrt(PEN.R3 * PEN.R3 - side * side);
+    const al = Math.asin(side / PEN.R3);
+    line([[BL, -side], ...arc(0, 0, PEN.R3, -al, al, 60), [BL, side]]);
+    // where you shoot from: a spot on the floor
+    const s = this.shooterAt(L, C), p = this.view(L, C, s.u - L.side * C.ru * 0.5, s.v - L.side * C.rv * 0.5, 0);
+    if (p) { ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.ellipse(p.x, p.y, 0.5 * p.k, 0.18 * p.k, 0, 0, Math.PI * 2); ctx.fill(); }
   },
 
-  drawKeeper(ctx, L, P, t) {
-    if (P.noKeeper) return;
-    const gk = this.goalie(P), k = (1.9 * L.s) / 68;
-    const flying = P.phase === 'flight' || P.phase === 'after' || (P.net && P.phase === 'runup' && P.dive);
-    const tt = P.phase === 'flight' ? P.t : P.phase === 'after' ? P.shot.T + P.t : P.phase === 'runup' ? P.t : 0;
-    const kx = P.kx || 0;
-    const K = P.net ? (P.dive && P.diveClock > 0 ? PEN.keeper({ ...P.dive, td: 0 }, kx, P.diveClock) : null)
-      : flying && P.dive ? PEN.keeper(P.dive, kx, tt) : null;
-    gk.fy = 1; gk.fx = 0; gk.faceX = 0.001;
-    if (!K || (K.s <= 0 && P.dive && (P.net || tt < P.dive.td))) {
-      // ready on the line, bouncing on their toes
-      gk.diveT = 0;
-      const feet = this.gp(L, kx, 0);
-      Sprites.player(ctx, gk, feet.x, feet.y - Math.abs(Math.sin(t * 5)) * L.s * 0.04, k, t);
-      return;
+  // The hoop: the post and arm, the backboard, the net and the rim. The front of the rim goes over a
+  // ball dropping through, so the back is drawn now and the front is handed back to draw later.
+  // (Sizes are the game's: HOOP below.)
+  drawHoop(ctx, L, C, P, t, ball) {
+    const V = (u, v, z) => this.view(L, C, u, v, z), H = PEN_HOOP;
+    const lw = (k, w) => Math.max(1.5, k * w);
+    // the post behind the baseline and its arm out to the board
+    const base = V(-2.8, 0, 0), top = V(-2.8, 0, H.Z + 0.55), arm = V(H.BOARD - 0.1, 0, H.Z + 0.55);
+    if (base && top && arm) {
+      for (const [col, w] of [[OUTLINE, 0.3], ['#c9d2de', 0.19]]) {
+        ctx.strokeStyle = col; ctx.lineWidth = lw(top.k, w); ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(base.x, base.y); ctx.lineTo(top.x, top.y); ctx.lineTo(arm.x, arm.y); ctx.stroke();
+      }
+      const pb = V(-2.8, 0, 1.4);
+      if (pb) { ctx.strokeStyle = OUTLINE; ctx.lineWidth = lw(pb.k, 0.58); ctx.beginPath(); ctx.moveTo(base.x, base.y); ctx.lineTo(pb.x, pb.y); ctx.stroke(); ctx.strokeStyle = TEAMS.blue.jersey; ctx.lineWidth = lw(pb.k, 0.44); ctx.stroke(); }
+      ctx.lineCap = 'butt';
     }
-    // diving: hips where the model says, the body along its axis
-    gk.diveT = 1;
-    const side = P.dive.dx >= 0 ? 1 : -1;
-    gk.diveDir = side * TEAMS[gk.team].dir;
-    const hip = this.gp(L, K.p.x, K.p.z);
-    const base = side * (Math.PI / 2.2);
-    ctx.save();
-    ctx.translate(hip.x, hip.y); ctx.rotate(K.phi - base); ctx.translate(-hip.x, -hip.y);
-    Sprites.player(ctx, gk, hip.x, hip.y + 36 * k, k, t);
-    ctx.restore();
+    // the backboard: a clear-ish board with the square over the rim
+    const quad = (pts, fill, stroke, w) => {
+      const sp = pts.map(([u, v, zz]) => V(u, v, zz)); if (sp.some((q) => !q)) return;
+      ctx.beginPath(); sp.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y))); ctx.closePath();
+      if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+      if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = w; ctx.stroke(); }
+    };
+    const bu = H.BOARD, bw = H.BOARD_W / 2, b0 = H.Z - 0.2, b1 = b0 + H.BOARD_H;
+    quad([[bu, -bw, b0], [bu, bw, b0], [bu, bw, b1], [bu, -bw, b1]], 'rgba(235, 246, 255, 0.94)', OUTLINE, 3);
+    quad([[bu + 0.01, -bw * 0.33, H.Z + 0.02], [bu + 0.01, bw * 0.33, H.Z + 0.02], [bu + 0.01, bw * 0.33, H.Z + H.BOARD_H * 0.42], [bu + 0.01, -bw * 0.33, H.Z + H.BOARD_H * 0.42]], null, '#ff3a3f', Math.max(2, L.H * 0.005));
+    // the rim and the net
+    const R = H.R, Z = H.Z, n = 24;
+    const made = P.result && P.shot && P.shot.made && P.phase === 'after';
+    const swing = made ? Math.sin(P.t * 22) * Math.max(0, 1 - P.t / 0.7) * R * 0.25 : 0;
+    const stretch = made ? Math.max(0, 1 - Math.abs(P.t - 0.15) / 0.35) * R * 0.5 : 0;
+    const rimPts = [], netPts = [];
+    for (let i = 0; i < n; i++) {
+      const ang = (i / n) * Math.PI * 2, cu = Math.cos(ang), cv = Math.sin(ang);
+      rimPts.push({ p: V(cu * R, cv * R, Z), near: cu * C.fu + cv * C.fv < 0 });
+      netPts.push(V(cu * R * 0.55 + swing, cv * R * 0.55, Z - R * 1.8 - stretch));
+    }
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = Math.max(1.4, L.H * 0.003);
+    for (let i = 0; i < n; i += 2) {
+      const q = rimPts[i].p, b = netPts[(i + 3) % n], c = netPts[(i + n - 3) % n];
+      if (!q || !b || !c) continue;
+      ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(b.x, b.y); ctx.moveTo(q.x, q.y); ctx.lineTo(c.x, c.y); ctx.stroke();
+    }
+    ctx.beginPath(); netPts.forEach((q, i) => q && (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y))); ctx.closePath(); ctx.stroke();
+    this.rimArc(ctx, rimPts, false, L);
+    // the bracket from the board to the back of the rim
+    const k1 = V(bu, 0, Z), k2 = V(-R, 0, Z);
+    if (k1 && k2) { ctx.strokeStyle = OUTLINE; ctx.lineWidth = Math.max(3, L.H * 0.007); ctx.beginPath(); ctx.moveTo(k1.x, k1.y); ctx.lineTo(k2.x, k2.y); ctx.stroke(); }
+    return () => this.rimArc(ctx, rimPts, true, L);
+  },
+  rimArc(ctx, pts, near, L) {
+    const w = Math.max(3, L.H * 0.009);
+    for (const [col, lw] of [[OUTLINE, w + 2.5], ['#ff6a1f', w]]) {
+      ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineCap = 'round';
+      for (let i = 0; i < pts.length; i++) {
+        const q = pts[i], b = pts[(i + 1) % pts.length];
+        if (!q.p || !b.p || q.near !== near) continue;
+        ctx.beginPath(); ctx.moveTo(q.p.x, q.p.y); ctx.lineTo(b.p.x, b.p.y); ctx.stroke();
+      }
+    }
+    ctx.lineCap = 'butt';
   },
 
-  // where the ball is on screen now: sitting on the spot, flying, in the net, gone wide, bouncing out
-  ballPos(L, P) {
-    const spotR = 0.11 * L.s * L.near;
-    const atSpot = { x: L.spot.x, y: L.spot.y, r: spotR, atSpot: true, spin: 0 };
-    if (!P.shot || P.phase === 'aim' || P.phase === 'ready' || P.phase === 'start' || P.phase === 'runup' || P.phase === 'strike') return P.phase === 'end' ? null : atSpot;
-    const s = P.shot, g = this.gp(L, s.x, s.z), rg = 0.11 * L.s;
+  // The ball in court metres, then on screen: in the shooter's hands, in the air, and what happens at
+  // the rim (all net, rattling in, off the glass, in and out, short, long, an airball).
+  ballWorld(L, C, P, t) {
+    const a = this.taker(P), H = PEN_HOOP, R = H.R, Z = H.Z;
+    const s = this.shooterAt(L, C);
+    const hand = { u: s.u + C.ru * 0.12, v: s.v + C.rv * 0.12, z: 2.45 };
+    if (P.phase === 'end') return null;
+    if (!P.shot || P.phase === 'aim' || P.phase === 'ready' || P.phase === 'start' || P.phase === 'runup' || P.phase === 'idle' || P.phase === 'theirs' || P.phase === 'wait' || P.phase === 'rise') {
+      if (!a) return null;
+      if (a.charging || P.phase === 'rise') {
+        const lift = P.phase === 'rise' ? Math.sin(clamp(P.t / 0.22, 0, 1) * Math.PI / 2) * 0.35 : 0;
+        return { ...hand, z: 1.95 + lift };
+      }
+      // dribbling at their side while they line it up
+      const b = Math.abs(Math.sin(a.dribble));
+      return { u: s.u + C.ru * 0.45 - C.fu * 0.15, v: s.v + C.rv * 0.45 - C.fv * 0.15, z: H.BALL + b * 0.75, low: true };
+    }
+    const sh = P.shot, rel = { u: hand.u, v: hand.v, z: 2.4 };
+    // where it meets the rim (or misses it), by what it does
+    const hits = { swish: [0, 0, Z + 0.2], rimIn: [R * 0.8, R * 0.25, Z + 0.15], boardIn: [H.BOARD + H.BALL, R * 0.6, Z + 0.55], rimOut: [R * 0.95, -R * 0.35, Z + 0.15],
+      short: [R * 1.25, 0, Z + 0.05], long: [-R * 1.05, 0, Z + 0.2], air: [R + 1.1, 0.1, Z - 0.75] };
+    const [hu, hv, hz] = hits[sh.how] || hits.swish;
     if (P.phase === 'flight') {
-      const u = clamp(P.t / s.T, 0, 1), k = 1.6, e = (u * (1 + k)) / (1 + k * u);
-      if (s.fk) { const p = this.along(L, s, u); return { x: p.x, y: p.y, r: p.r, spin: u * 12, u }; }
-      return { x: lerp(L.spot.x, g.x, e), y: lerp(L.spot.y, g.y, e), r: 1 / lerp(1 / spotR, 1 / rg, u), spin: u * 12 };
+      const u = clamp(P.t / sh.T, 0, 1), apex = sh.ft ? 3.75 : 3.95;
+      const zz = lerp(rel.z, hz, u) + (apex - Math.max(rel.z, hz)) * 4 * u * (1 - u) * (sh.how === 'air' ? 0.75 : 1);
+      return { u: lerp(rel.u, hu, u), v: lerp(rel.v, hv, u), z: zz, spin: u * 14 };
     }
     if (P.phase !== 'after') return null;
-    const a = P.t, res = P.result;
-    if (res === 'wall') {
-      // off the wall and back towards us, bouncing, drawn in front of the wall
-      const f = PEN.FK.AT / PEN.FK.DIST, w = this.along(L, s, f), u = clamp(a / 1.0, 0, 1);
-      const side = (P.after && P.after.side) || 1, ground = lerp(w.y + w.r * 3, L.spot.y - L.s * L.near * 0.4, u);
-      const hop = Math.abs(Math.sin(u * Math.PI * 2)) * L.s * L.near * 0.5 * (1 - u);
-      return { x: w.x + side * L.gw * 0.4 * u, y: lerp(w.y, ground, Math.min(1, u * 2.5)) - hop, r: w.r * lerp(1, 1.5, u), spin: 12 + u * 8, u: 0, onGround: u > 0.4 && hop < w.r * 0.3 };
+    const k = P.t;
+    const drop = (u0, v0, z0, du, dv, t0) => {
+      // fall from (u0, v0, z0), bounce off the floor and roll out towards the camera
+      const tt = Math.max(0, k - t0), g = 9.8;
+      const tFloor = Math.sqrt((2 * Math.max(0.1, z0 - H.BALL)) / g);
+      if (tt < tFloor) return { u: u0 + du * tt, v: v0 + dv * tt, z: z0 - 0.5 * g * tt * tt };
+      const b = tt - tFloor, hop = Math.max(0, Math.sin(b * 5.5) * 0.9 * Math.exp(-b * 1.6));
+      return { u: u0 + du * tt, v: v0 + dv * tt, z: H.BALL + Math.abs(hop), low: true };
+    };
+    switch (sh.how) {
+      case 'swish': { const w = drop(0, 0, Z + 0.1, 0.9, 0, 0); return { ...w, behind: k < 0.25, spin: 14 + k * 4 }; }
+      case 'rimIn': {
+        if (k < 0.32) { const h = Math.sin((k / 0.32) * Math.PI) * R * 0.9; return { u: lerp(hu, 0.02, k / 0.32), v: lerp(hv, 0, k / 0.32), z: hz + h, spin: 14 }; }
+        const w = drop(0.02, 0, Z + 0.1, 0.8, 0, 0.32); return { ...w, behind: k < 0.55, spin: 16 };
+      }
+      case 'boardIn': {
+        if (k < 0.22) return { u: lerp(hu, 0, k / 0.22), v: lerp(hv, 0, k / 0.22), z: lerp(hz, Z + 0.15, k / 0.22), spin: 14, behind: true };
+        const w = drop(0, 0, Z + 0.1, 0.8, 0, 0.22); return { ...w, behind: k < 0.45, spin: 16 };
+      }
+      case 'rimOut': {
+        // round the rim and out to the side
+        if (k < 0.35) { const ang = lerp(0.35, 2.6, k / 0.35); return { u: Math.cos(ang) * R, v: -Math.sin(ang) * R, z: Z + 0.15 + Math.sin((k / 0.35) * Math.PI) * 0.3, spin: 16, behind: Math.cos(ang) * C.fu - Math.sin(ang) * C.fv > 0 }; }
+        const w = drop(-R * 0.85, -R * 0.5, Z + 0.3, 1.6, -1.6, 0.35); return { ...w, spin: 18 };
+      }
+      case 'short': {
+        const w = drop(hu, hv, hz, 2.4, 0.3, 0);
+        return { ...w, z: w.low ? w.z : w.z + Math.max(0, 0.9 * Math.sin(Math.min(1, k / 0.5) * Math.PI)), spin: 18 };
+      }
+      case 'long': {
+        if (k < 0.4) { const f = k / 0.4; return { u: lerp(hu, 1.2, f), v: hv + f * 0.3, z: hz + Math.sin(f * Math.PI) * 1.1 + f * 0.1, spin: 16 }; }
+        const w = drop(1.2, 0.3, Z + 0.3, 1.8, 0.4, 0.4); return { ...w, spin: 18 };
+      }
+      default: { const w = drop(hu, hv, hz, 1.2, 0.1, 0); return { ...w, spin: 12 }; }
     }
-    if (res === 'goal' || res === 'postIn' || res === 'barIn') {
-      // into the net, then it drops
-      const u = clamp(a / 0.18, 0, 1), fall = clamp((a - 0.18) / 0.5, 0, 1);
-      const bx = lerp(g.x, L.gx + (g.x - L.gx) * 0.9, u), by = lerp(g.y, g.y + L.gh * 0.08, u) + (L.gy - L.gh * 0.08 - g.y) * fall * fall * (fall > 0 ? 1 : 0);
-      return { x: bx, y: Math.min(by, L.gy - rg * 0.9), r: rg * lerp(1, 0.9, u), behind: true, inNet: true, hitX: g.x, hitY: g.y, bulge: Math.max(0, 1 - Math.abs(a - 0.2) / 0.6), spin: 12 };
-    }
-    if (res === 'wide' || res === 'over') {
-      const u = clamp(a / 0.4, 0, 1);
-      if (u >= 1) return null;
-      return { x: g.x + (g.x - L.spot.x) * u * 0.5, y: g.y + (g.y - L.spot.y) * u * 0.5, r: rg * (1 - u * 0.3), behind: true, spin: 12 + u * 6 };
-    }
-    if (res === 'save' && P.after.held) {
-      const K = P.net ? PEN.keeper(P.dive ? { ...P.dive, td: 0 } : null, P.kx || 0, P.diveClock) : PEN.keeper(P.dive, 0, s.T + a), hand = this.gp(L, K.p.x + K.a.x * 1.2, K.p.z + K.a.z * 1.2);
-      return { x: hand.x, y: hand.y, r: rg, spin: 12 };
-    }
-    // parried, or off the woodwork: back out towards us and bouncing
-    const u = clamp(a / 0.9, 0, 1), side = res === 'save' ? P.after.side : -Math.sign(s.x) || 1;
-    const x = g.x + side * L.gw * 0.35 * u + (res === 'post' ? -Math.sign(s.x) * L.gw * 0.15 * u : 0);
-    const groundY = lerp(L.gy, L.spot.y, u * 0.7);
-    const arc = Math.abs(Math.sin(u * Math.PI * 1.5)) * L.gh * 0.5 * (1 - u);
-    return { x, y: lerp(g.y, groundY, Math.min(1, u * 2.2)) - arc, r: rg * lerp(1, 1.6, u), spin: 12 + u * 8, onGround: u * 2.2 >= 1 && arc < rg * 0.2 };
   },
-
-  // four of the defending side, 9.15 m from the ball, across the side of the goal they cover; on a
-  // jump they go up as the ball is struck
-  drawWall(ctx, L, P, t) {
-    if (!P.wallMen || !P.wall) return;
-    const f = PEN.FK.AT / PEN.FK.DIST, d = this.depth(L, f), side = P.wall.side;
-    const k = (1.9 * d.pm) / 68, ground = lerp(L.spot.y, L.gy, d.e);
-    const since = P.phase === 'flight' ? P.t : P.phase === 'after' ? PEN.flightT(P.shot) + P.t : -1;
-    const hop = P.wall.jump && since >= 0 ? Math.sin(clamp(since / 0.55, 0, 1) * Math.PI) * 0.42 * d.pm : 0;
-    // across the covered side, in goal-plane metres, seen from the ball
-    const a = side > 0 ? PEN.FK.NEAR + 0.25 : -(PEN.HW + 0.35), b = side > 0 ? PEN.HW + 0.35 : -(PEN.FK.NEAR + 0.25);
-    const n = P.wallMen.length;
-    for (let i = 0; i < n; i++) {
-      const gx = a + ((i + 0.5) / n) * (b - a);
-      const x = lerp(L.spot.x, L.gx + gx * L.s, d.e);
-      const man = P.wallMen[i];
-      man.fy = 1; man.fx = 0; man.faceX = 0.001; man.vx = 0; man.vy = 0;
-      Sprites.player(ctx, man, x, ground - hop, k, t + i * 0.37);
-    }
+  ballPos(L, C, P, t) {
+    const w = this.ballWorld(L, C, P, t);
+    if (!w) return null;
+    const p = this.view(L, C, w.u, w.v, w.z);
+    if (!p) return null;
+    const g = w.low ? this.view(L, C, w.u, w.v, 0) : null;
+    return { x: p.x, y: p.y, r: PEN_HOOP.BALL * p.k, spin: w.spin || 0, behind: !!w.behind, shadow: g };
   },
 
   drawBall(ctx, bp, t) {
     const b = this._ballObj || (this._ballObj = { x: 0, y: 0, z: 0, vx: 1, vy: 0, roll: 0, shot: null, owner: null, skin: null });
     b.roll = bp.spin || 0;
-    // a flat shadow on the grass under a ball that is on the ground (on the spot, or rolling back out)
-    if (bp.atSpot || bp.onGround) {
-      ctx.fillStyle = 'rgba(22, 26, 51, 0.38)';
-      ctx.beginPath(); ctx.ellipse(bp.x + bp.r * 0.12, bp.y + bp.r * 0.04, bp.r * 0.98, bp.r * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+    if (bp.shadow) {
+      ctx.fillStyle = 'rgba(22, 26, 51, 0.32)';
+      ctx.beginPath(); ctx.ellipse(bp.shadow.x, bp.shadow.y, bp.r * 0.95, bp.r * 0.32, 0, 0, Math.PI * 2); ctx.fill();
     }
-    Sprites.ball(ctx, b, bp.x, bp.y - bp.r, bp.r / CFG.BALL_R, t);
+    Sprites.ball(ctx, b, bp.x, bp.y, bp.r / CFG.BALL_R, t);
   },
 
-  drawTaker(ctx, L, P, t) {
+  // the shooter, from behind: dribbling, set with the ball up, up in the jump, the follow-through
+  drawTaker(ctx, L, C, P, t) {
     const a = this.taker(P);
     if (!a) return;
-    const k = ((1.9 * L.s) / 68) * L.near * 0.75, m = L.s * L.near;
-    // standing back and to the left of the ball, then two steps into it
-    const run = clamp(a.run || 0, 0, 1), smoothRun = run * run * (3 - 2 * run);
-    const x = L.spot.x - m * lerp(0.95, 0.42, smoothRun), y = L.spot.y + m * lerp(0.55, 0.12, smoothRun);
-    a.vx = run > 0 && run < 1 ? CFG.SPEED : 0; a.vy = 0;
-    if (run > 0 && run < 1) a.runPhase = t * 12;
-    if (a.kickT <= 0 && a.celebrateT <= 0 && P.phase !== 'after') { a.fy = -1; a.faceX = 0.001; }
-    if (P.phase === 'after' && a.celebrateT <= 0 && !a.sad) { a.fy = -1; a.faceX = 0.001; }
-    Sprites.player(ctx, a, x, y, k, t);
+    const s = this.shooterAt(L, C), feet = this.view(L, C, s.u, s.v, 0);
+    if (!feet) return;
+    const k = (1.9 * feet.k) / 70;
+    let jump = 0;
+    if (P.phase === 'rise') jump = Math.sin(clamp(P.t / 0.22, 0, 1) * Math.PI / 2) * 0.35;
+    else if (P.phase === 'flight') jump = Math.max(0, Math.cos(clamp(P.t / 0.3, 0, 1) * Math.PI / 2)) * 0.35;
+    a.z = jump > 0.1 ? 20 : 0;
+    a.hasBall = !(P.phase === 'flight' || P.phase === 'after' || P.phase === 'end');
+    if (P.phase === 'rise') a.charging = true;
+    if (a.celebrateT <= 0 && P.phase !== 'after') { a.fy = -1; a.faceX = 0.001; a.fx = 0; }
+    a.vx = 0; a.vy = 0;
+    Sprites.player(ctx, a, feet.x, feet.y - jump * feet.k, k, t);
   },
 
-  // the tally, the call, the aim, the power and what to press
-  drawOverlay(ctx, L, P, t) {
+  // the tally, the spot, the meter, the call and what to press
+  drawOverlay(ctx, L, C, P, t) {
     const W = L.W, H = L.H;
     const boxes = this.boxes = {}; // where each piece landed, for the fit check
-    Render.boxes = null;              // a shootout has no minimap or anything else of the match's
+    Render.boxes = null;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    // tally: a row of five for each side (sudden death shows the latest)
     const chal = !!P.chal;
     const n = Math.max(5, P.kicks.blue.length, P.kicks.red.length), from = Math.max(0, n - 5);
     const dot = clamp(H * 0.02, 7, 11), gap = dot * 2.7, rowH = dot * 2.6;
     const pw = gap * 5 + dot * 7.5, ph = rowH * 2 + dot * 0.8, px = W / 2 - pw / 2;
     let py = 10;
-    // on a narrow screen the card is nearly the full width, so the pause button would sit on it:
-    // there is no room beside it, so go under the button instead
     const corner = L.corner;
     if (corner && px < corner.right + 4 && py < corner.bottom + 4) py = corner.bottom + 6;
     boxes.board = [px, py, px + pw, py + ph];
-    if (chal) SkillRun.drawPens(ctx, L, P, t);
-    if (!chal) { ctx.fillStyle = OUTLINE; Sprites.rr(ctx, px + 3, py + 4, pw, ph, dot); ctx.fill();
-    ctx.fillStyle = '#ffffff'; Sprites.rr(ctx, px, py, pw, ph, dot); ctx.fill();
-    ctx.strokeStyle = OUTLINE; ctx.lineWidth = 3; ctx.stroke(); }
-    if (!chal) ['blue', 'red'].forEach((team, row) => {
-      const cy = py + dot * 0.4 + rowH * (row + 0.5);
-      const fcv = this.flag(team, dot * 3.2);
-      if (fcv) ctx.drawImage(fcv, px + dot * 0.8, cy - dot * 1.07, dot * 3.2, dot * 2.13);
-      Render.chunkyText(ctx, String(P.kicks[team].filter(Boolean).length), px + dot * 5.4, cy, dot * 1.9, team === 'blue' ? '#ffffff' : '#ffd0d3', 3);
-      for (let i = 0; i < 5; i++) {
-        const k = from + i, v = P.kicks[team][k], cx = px + dot * 7.6 + gap * i + dot;
-        const nextUp = P.phase !== 'end' && P.team === team && k === P.kicks[team].length;
-        ctx.beginPath(); ctx.arc(cx, cy, dot * (nextUp ? 1 + Math.sin(t * 8) * 0.12 : 1), 0, Math.PI * 2);
-        ctx.fillStyle = v === true ? '#3fcf4a' : v === false ? '#ff3a3f' : nextUp ? '#ffe14d' : '#e4e7f5';
-        ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = OUTLINE; ctx.stroke();
-        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(2, dot * 0.28); ctx.lineCap = 'round';
-        if (v === true) { ctx.beginPath(); ctx.moveTo(cx - dot * 0.45, cy); ctx.lineTo(cx - dot * 0.1, cy + dot * 0.38); ctx.lineTo(cx + dot * 0.48, cy - dot * 0.36); ctx.stroke(); }
-        if (v === false) { const e = dot * 0.4; ctx.beginPath(); ctx.moveTo(cx - e, cy - e); ctx.lineTo(cx + e, cy + e); ctx.moveTo(cx + e, cy - e); ctx.lineTo(cx - e, cy + e); ctx.stroke(); }
-        ctx.lineCap = 'butt';
-      }
-    });
+    if (chal) SkillRun.drawShots(ctx, L, P, t, boxes.board);
+    else {
+      ctx.fillStyle = OUTLINE; Sprites.rr(ctx, px + 3, py + 4, pw, ph, dot); ctx.fill();
+      ctx.fillStyle = '#ffffff'; Sprites.rr(ctx, px, py, pw, ph, dot); ctx.fill();
+      ctx.strokeStyle = OUTLINE; ctx.lineWidth = 3; ctx.stroke();
+      ['blue', 'red'].forEach((team, row) => {
+        const cy = py + dot * 0.4 + rowH * (row + 0.5);
+        const fcv = this.flag(team, dot * 3.2);
+        if (fcv) ctx.drawImage(fcv, px + dot * 0.8, cy - dot * 1.07, dot * 3.2, dot * 2.13);
+        Render.chunkyText(ctx, String(P.kicks[team].filter(Boolean).length), px + dot * 5.4, cy, dot * 1.9, team === 'blue' ? '#ffffff' : '#ffd0d3', 3);
+        for (let i = 0; i < 5; i++) {
+          const kk = from + i, v = P.kicks[team][kk], cx = px + dot * 7.6 + gap * i + dot;
+          const nextUp = P.phase !== 'end' && P.team === team && kk === P.kicks[team].length;
+          ctx.beginPath(); ctx.arc(cx, cy, dot * (nextUp ? 1 + Math.sin(t * 8) * 0.12 : 1), 0, Math.PI * 2);
+          ctx.fillStyle = v === true ? '#3fcf4a' : v === false ? '#ff3a3f' : nextUp ? '#ffe14d' : '#e4e7f5';
+          ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = OUTLINE; ctx.stroke();
+          ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(2, dot * 0.28); ctx.lineCap = 'round';
+          if (v === true) { ctx.beginPath(); ctx.moveTo(cx - dot * 0.45, cy); ctx.lineTo(cx - dot * 0.1, cy + dot * 0.38); ctx.lineTo(cx + dot * 0.48, cy - dot * 0.36); ctx.stroke(); }
+          if (v === false) { const e = dot * 0.4; ctx.beginPath(); ctx.moveTo(cx - e, cy - e); ctx.lineTo(cx + e, cy + e); ctx.moveTo(cx + e, cy - e); ctx.lineTo(cx - e, cy + e); ctx.stroke(); }
+          ctx.lineCap = 'butt';
+        }
+      });
+    }
     const big = clamp(Math.min(W, H) * 0.11, 30, 76);
     const sub = clamp(big * 0.42, 14, 30);
-    const cy = py + ph + sub * 1.1;
-    // who's up
+    let cy = py + ph + sub * 1.1;
+    // where this one is from
+    const spotName = P.fk ? tl('FREE THROW') : PEN_SPOT_NAMES[P.spot] || '';
+    if (P.phase !== 'end' && P.phase !== 'flight' && P.phase !== 'after' && spotName) { Render.chunkyText(ctx, spotName, W / 2, cy, sub * 0.85, '#ffffff'); boxes.spot = [W / 2 - sub * 0.3 * spotName.length, cy - sub * 0.6, W / 2 + sub * 0.3 * spotName.length, cy + sub * 0.6]; cy += sub * 1.1; }
+    const midY = L.y0 + (H - L.y0) * 0.12;
+    // who is up
     if (P.phase === 'start' || P.phase === 'ready') {
       const u = clamp(P.t / 0.3, 0, 1), z = easeOut(u);
-      ctx.save(); ctx.translate(W / 2, L.gy - L.gh * 0.55); ctx.scale(z, z);
-      if (chal) Render.chunkyText(ctx, P.chal.id === 'targets' ? tl('HIT A TARGET') : tl('SAVE IT!'), 0, 0, big, P.chal.id === 'targets' ? '#ffe14d' : '#46d9ff');
+      ctx.save(); ctx.translate(W / 2, midY); ctx.scale(z, z);
+      if (chal) Render.chunkyText(ctx, P.chal.id === 'keeper' ? tl('FREE THROW') : tl('LET IT FLY'), 0, 0, big, '#ffe14d');
       else {
-      const mine = P.watch ? tl('{0} KICKS', [P.watchName || tl('THEY')]) : P.fk ? tl('YOUR FREE KICK') : tl('YOUR KICK');
-      const shout = this.sudden(P) && P.team === P.first ? tl('SUDDEN DEATH') : P.team === 'blue' ? mine : P.watch ? tl('{0} KICK', [TEAMS.red.name]) : tl('SAVE IT!');
-      const first = P.first === 'blue' ? (P.watch ? tl('{0} KICKS FIRST', [P.watchName || tl('THEY')]) : tl('YOU KICK FIRST')) : tl('{0} KICK FIRST', [TEAMS.red.name]);
-      if (P.phase === 'start') Render.chunkyText(ctx, first, 0, -big * 0.8, big * 0.55 * this.fit(first, 17), '#ffffff');
-      const sh = big * this.fit(shout, 12), sw = sh * 0.56 * shout.length;
-      boxes.shout = [W / 2 - sw / 2, L.gy - L.gh * 0.55 - sh * 0.6, W / 2 + sw / 2, L.gy - L.gh * 0.55 + sh * 0.6];
-      Render.chunkyText(ctx, shout, 0, 0, sh, P.team === 'blue' ? '#ffe14d' : '#46d9ff');
+        const mine = P.watch ? tl('{0} SHOOTS', [P.watchName || tl('THEY')]) : tl('YOUR SHOT');
+        const shout = this.sudden(P) && P.team === P.first ? tl('SUDDEN DEATH') : P.team === 'blue' ? mine : tl('{0} SHOOT', [TEAMS.red.name]);
+        const first = P.first === 'blue' ? (P.watch ? tl('{0} SHOOTS FIRST', [P.watchName || tl('THEY')]) : tl('YOU SHOOT FIRST')) : tl('{0} SHOOT FIRST', [TEAMS.red.name]);
+        if (P.phase === 'start') Render.chunkyText(ctx, first, 0, -big * 0.8, big * 0.55 * this.fit(first, 17), '#ffffff');
+        const sh = big * this.fit(shout, 12), sw = sh * 0.56 * shout.length;
+        boxes.shout = [W / 2 - sw / 2, midY - sh * 0.6, W / 2 + sw / 2, midY + sh * 0.6];
+        Render.chunkyText(ctx, shout, 0, 0, sh, P.team === 'blue' ? '#ffe14d' : '#46d9ff');
       }
       ctx.restore();
     } else if (P.phase !== 'after' && P.phase !== 'end' && this.sudden(P)) {
       Render.chunkyText(ctx, tl('SUDDEN DEATH'), W / 2, cy, sub, '#ff8a8e');
     }
-    // your aim
-    if (P.phase === 'aim') {
-      const sw = P.sway || { x: 0, z: 0 };
-      const c = this.gp(L, (P.aim.x + sw.x) * PEN.HW, (P.aim.z + sw.z) * PEN.HT);
-      const r = Math.max(10, L.s * 0.3) * (1 + Math.sin(t * 7) * 0.06);
-      ctx.lineWidth = 7; ctx.strokeStyle = OUTLINE;
-      ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2); ctx.stroke();
-      ctx.lineWidth = 4; ctx.strokeStyle = P.holding ? '#ffe14d' : '#ffffff';
-      ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(c.x - r * 1.5, c.y); ctx.lineTo(c.x - r * 0.5, c.y); ctx.moveTo(c.x + r * 0.5, c.y); ctx.lineTo(c.x + r * 1.5, c.y);
-      ctx.moveTo(c.x, c.y - r * 1.5); ctx.lineTo(c.x, c.y - r * 0.5); ctx.moveTo(c.x, c.y + r * 0.5); ctx.lineTo(c.x, c.y + r * 1.5); ctx.stroke();
-      // power: fills while you hold, the top bit (red) is too much. It stands just outside the
-      // right post. On touch it used to be pulled in to 80% of the width to keep clear of SHOOT,
-      // which on a phone put it straight over the post, and the right side of the goal looked
-      // broken. Now it keeps its place and, if SHOOT is under it, gets shorter instead.
-      const bw = Math.max(14, L.s * 0.32), post = Math.max(5, L.s * 0.12);
-      let bh = L.gh * 1.05;
-      const bx = Math.min(W - bw - 16, L.gx + L.gw / 2 + post + Math.max(10, L.s * 0.3)), by = L.gy - bh;
+    // the meter, beside the shooter: grey, then the yellow of a good one, the green of a perfect
+    // one, red past it
+    const showMeter = P.phase === 'aim' || P.phase === 'runup' || P.phase === 'theirs' || P.phase === 'rise' || (P.phase === 'flight' && P.t < 0.6);
+    if (showMeter && !(P.phase === 'runup' && P.t < P.runup)) {
+      const s = this.shooterAt(L, C), feet = this.view(L, C, s.u, s.v, 0);
+      const bw = Math.max(14, H * 0.03), bh = H * 0.34;
+      let bx = (feet ? feet.x : W / 2) + H * 0.2, by = (feet ? feet.y : H * 0.9) - bh - H * 0.08;
+      bx = Math.min(W - bw - 16, bx); by = Math.max(cy + sub, by);
       const shootEl = !document.body.classList.contains('kb') && typeof $ === 'function' ? $('btn-shoot') : null;
       if (shootEl) {
         const r = shootEl.getBoundingClientRect();
-        if (r.width > 1 && r.left < bx + bw + 6 && r.right > bx - 6) bh = clamp(r.top - 10 - sub * 1.2 - by, bh * 0.35, bh);
+        if (r.width > 1 && r.left < bx + bw + 6 && r.right > bx - 6 && r.top < by + bh + 6) bx = Math.max(16, r.left - bw - 18);
       }
+      const max = PEN.Z.LATE, yAt = (v) => by + bh - (bh - 4) * (v / max) - 2;
       ctx.fillStyle = OUTLINE; Sprites.rr(ctx, bx + 3, by + 3, bw, bh, bw / 2); ctx.fill();
       ctx.fillStyle = '#e4e7f5'; Sprites.rr(ctx, bx, by, bw, bh, bw / 2); ctx.fill();
-      ctx.fillStyle = '#ffc9cb'; ctx.fillRect(bx + 2, by + 2, bw - 4, bh * 0.18);
-      const fh = (bh - 4) * P.power;
-      ctx.fillStyle = P.power > 0.82 ? '#ff3a3f' : P.power > 0.55 ? '#ffe14d' : '#3fcf4a';
-      if (fh > 0) { Sprites.rr(ctx, bx + 2, by + bh - 2 - fh, bw - 4, fh, Math.min(bw / 2 - 2, fh / 2)); ctx.fill(); }
-      ctx.strokeStyle = OUTLINE; ctx.lineWidth = 3; Sprites.rr(ctx, bx, by, bw, bh, bw / 2); ctx.stroke();
-      boxes.power = [bx, by, bx + bw, by + bh + sub * 1.2];
-      Render.chunkyText(ctx, tl('POWER'), bx + bw / 2, by + bh + sub * 0.8, sub * 0.6, '#ffffff', 3);
-      if (P.clock < 3.5) Render.chunkyText(ctx, String(Math.ceil(P.clock)), c.x, c.y - r * 2.4, sub * 1.1, '#ff8a8e');
-    }
-    // you in goal: a line from the keeper the way you will dive
-    if ((P.phase === 'runup' || P.phase === 'flight' || P.phase === 'idle') && P.team === 'red' && !P.dive && !P.watch) {
-      // (from where the keeper stands: in a free kick that is off to one side, away from the wall)
-      // the line points the way you will dive: the stick or keys if you are pushing them, otherwise
-      // towards the mouse (the same choice diveFrom makes when you press)
-      const mv = Input.move, l = Math.hypot(mv.x, mv.y), hip = this.gp(L, P.kx || 0, PEN.K.hip);
-      if (l > 0.25 || P.mouse) {
-        const d = this.diveFrom(P, 0), dx = d.dx, dy = -d.dz, len = L.s * 1.6;
-        ctx.strokeStyle = OUTLINE; ctx.lineWidth = 9; ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.moveTo(hip.x + dx * L.s * 0.5, hip.y + dy * L.s * 0.5); ctx.lineTo(hip.x + dx * len, hip.y + dy * len); ctx.stroke();
-        ctx.strokeStyle = '#46d9ff'; ctx.lineWidth = 5;
-        ctx.beginPath(); ctx.moveTo(hip.x + dx * L.s * 0.5, hip.y + dy * L.s * 0.5); ctx.lineTo(hip.x + dx * len, hip.y + dy * len); ctx.stroke();
-        ctx.lineCap = 'butt';
+      ctx.fillStyle = '#ffc9cb'; ctx.fillRect(bx + 2, yAt(max) + 2, bw - 4, yAt(PEN.Z.TOP) - yAt(max) - 2);
+      ctx.fillStyle = 'rgba(255,225,77,0.75)'; ctx.fillRect(bx + 2, yAt(PEN.Z.PERFECT), bw - 4, yAt(PEN.Z.GOOD) - yAt(PEN.Z.PERFECT));
+      ctx.fillStyle = '#7ee89a'; ctx.fillRect(bx + 2, yAt(PEN.Z.TOP), bw - 4, yAt(PEN.Z.PERFECT) - yAt(PEN.Z.TOP));
+      const v = clamp(P.meter || 0, 0, max), zone = PEN.zone(v);
+      if (v > 0) {
+        ctx.fillStyle = zone === 'perfect' ? '#1fb84a' : zone === 'good' ? '#f0b400' : zone === 'late' ? '#ff3a3f' : '#ffffff';
+        ctx.fillRect(bx + bw * 0.22, yAt(v), bw * 0.56, by + bh - 3 - yAt(v));
+        ctx.fillStyle = OUTLINE; ctx.fillRect(bx - 4, yAt(v) - 2, bw + 8, 4);
       }
+      ctx.strokeStyle = OUTLINE; ctx.lineWidth = 3; Sprites.rr(ctx, bx, by, bw, bh, bw / 2); ctx.stroke();
+      boxes.power = [bx - 4, by, bx + bw + 4, by + bh + sub * 1.2];
+      if (P.zoneSay && P.rel !== null) Render.chunkyText(ctx, P.zoneSay[0], bx + bw / 2, by - sub * 0.8, sub * 0.8, P.zoneSay[1], 3);
+      if (P.phase === 'aim' && P.clock < 3.5) Render.chunkyText(ctx, String(Math.ceil(P.clock)), bx + bw / 2, by + bh + sub * 0.8, sub * 1.1, '#ff8a8e');
     }
     // the call
     if (P.say && P.phase === 'after') {
       const u = clamp(P.t / 0.25, 0, 1), z = easeOut(u) * (1 + Math.sin(P.t * 5) * 0.03);
-      ctx.save(); ctx.translate(W / 2, L.gy - L.gh * 0.55); ctx.rotate(-0.04); ctx.scale(z, z);
-      Render.chunkyText(ctx, P.say[0], 0, 0, big * (P.say[0].length > 8 ? 0.8 : 1), P.say[1]);
+      ctx.save(); ctx.translate(W / 2, midY); ctx.rotate(-0.04); ctx.scale(z, z);
+      Render.chunkyText(ctx, P.say[0], 0, 0, big * (P.say[0].length > 10 ? 0.7 : P.say[0].length > 7 ? 0.85 : 1), P.say[1]);
       ctx.restore();
     }
     if (P.phase === 'end' && !chal) {
       const u = clamp(P.t / 0.35, 0, 1), z = easeOut(u);
-      ctx.save(); ctx.translate(W / 2, L.gy - L.gh * 0.5); ctx.scale(z, z);
-      const won = P.watch ? tl('{0} WINS IT!', [P.watchName || tl('THEY')]) : P.fk ? tl('YOU WIN THE FREE KICKS!') : tl('YOU WIN THE SHOOTOUT!');
-      Render.chunkyText(ctx, P.winner === 'blue' ? won : tl('{0} WIN IT', [TEAMS.red.name]), 0, 0, big * 0.8, P.winner === 'blue' ? '#ffe14d' : '#ffffff');
+      ctx.save(); ctx.translate(W / 2, midY); ctx.scale(z, z);
+      const won = P.watch ? tl('{0} WINS IT!', [P.watchName || tl('THEY')]) : P.fk ? tl('YOU WIN THE FREE THROWS!') : tl('YOU WIN THE CONTEST!');
+      Render.chunkyText(ctx, P.winner === 'blue' ? won : tl('{0} WIN IT', [TEAMS.red.name]), 0, 0, big * 0.8 * this.fit(P.winner === 'blue' ? won : TEAMS.red.name + '  WIN IT', 20), P.winner === 'blue' ? '#ffe14d' : '#ffffff');
       ctx.restore();
     }
     // what to press
     const kb = document.body.classList.contains('kb');
     let hint = null;
-    if (P.watch) hint = null; // nobody tells a viewer to press anything
-    else if (P.phase === 'aim' && P.fk && !P.holding) hint = tl('SOFT AND HIGH GOES OVER THE WALL  ·  HARD GOES ROUND IT');
-    else if (P.phase === 'aim') hint = P.holding ? tl('LET GO TO SHOOT') : kb ? tl('AIM: WASD OR MOUSE  ·  HOLD SPACE OR CLICK FOR POWER') : tl('AIM WITH THE STICK  ·  HOLD SHOOT FOR POWER');
-    else if ((P.phase === 'runup' || P.phase === 'flight' || P.phase === 'idle') && P.team === 'red' && !P.dive) hint = kb ? tl('WATCH THE KICK  ·  CLICK WHERE TO DIVE, OR WASD + SPACE') : tl('WATCH THE KICK  ·  STICK + DIVE');
+    if (P.watch) hint = null;
+    else if (P.phase === 'aim') hint = P.holding ? tl('LET GO IN THE GREEN') : kb ? tl('HOLD SPACE OR CLICK  ·  LET GO IN THE GREEN') : tl('HOLD SHOOT  ·  LET GO IN THE GREEN');
     if (hint) {
       const hs = clamp(Math.min(W, H) * 0.034, 12, 18);
       ctx.font = `400 ${hs}px "Lilita One", system-ui, sans-serif`;
-      const w = ctx.measureText(hint).width + hs * 1.6, hy = kb ? H - hs * 2.2 : L.gy + (L.spot.y - L.gy) * 0.18;
+      const w = ctx.measureText(hint).width + hs * 1.6, hy = kb ? H - hs * 2.2 : L.y0 + (H - L.y0) * 0.3;
       boxes.hint = [W / 2 - w / 2, hy - hs, W / 2 + w / 2, hy + hs];
       ctx.fillStyle = 'rgba(22, 26, 51, 0.78)'; Sprites.rr(ctx, W / 2 - w / 2, hy - hs, w, hs * 2, hs * 0.6); ctx.fill();
       ctx.fillStyle = '#ffffff'; ctx.fillText(hint, W / 2, hy + 1);
@@ -1119,20 +915,5 @@ const Pens = {
       this._flags[key] = cv;
     }
     return this._flags[key];
-  },
-
-  // Mouse on PC: point at the goal. Taking a kick it aims; in goal it picks where you dive. It is
-  // listened for on the whole window, so the joystick's half of a touch layout (a touchscreen
-  // laptop, or Controls set to touch) no longer swallows it.
-  mouseAim(e) {
-    const m = Game.match;
-    if (!m || !m.pens || e.pointerType !== 'mouse' || Game.state !== 'match') return;
-    const P = m.pens;
-    const keeping = P.team === 'red' && !P.dive && (P.phase === 'ready' || P.phase === 'runup' || P.phase === 'flight' || P.phase === 'idle');
-    if (P.phase !== 'aim' && !keeping) return;
-    const L = this.layout(Render.W, Render.H, !!m.pens.fk);
-    const x = (e.clientX - L.gx) / L.s / PEN.HW, z = (L.gy - e.clientY) / L.s / PEN.HT;
-    if (x < -1.6 || x > 1.6 || z < -0.4 || z > 1.8) return;
-    m.pens.mouse = { x: clamp(x, -1.08, 1.08), z: clamp(z, 0.03, 1.1) };
   },
 };

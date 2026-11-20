@@ -76,19 +76,20 @@ const PH_RESTART = 8, PH_PLAY = 1;
   // both kick off: the ball is on the centre spot of each one's own pitch
   const nroom = game._roomOf('n1');
   for (let i = 0; i < 200 && (room.m.phase !== 'play' || nroom.m.phase !== 'play'); i++) await sleep(50);
-  check('the PRO room kicks off in the middle of the big pitch (3000 wide)', Math.abs(room.m.ball.x - 1500) < 80, Math.round(room.m.ball.x));
-  check('the ordinary room in the middle of the normal one (2400 wide)', Math.abs(nroom.m.ball.x - 1200) < 80, Math.round(nroom.m.ball.x));
+  // (the same court: PRO has more room round it, for inbounds)
+  check('the PRO room tips off at centre court', Math.abs(room.m.ball.x - 900) < 220, Math.round(room.m.ball.x));
+  check('and so does the ordinary room', Math.abs(nroom.m.ball.x - 900) < 220, Math.round(nroom.m.ball.x));
 
-  console.log('a throw-in, online');
+  console.log('an inbound, online');
   {
     const seat = room.seats.find((s) => s.userId === 'p1'), me = seat.player, ws = socks.p1;
     const other = me.team === 'blue' ? 'red' : 'blue';
     const m = room.m, b = m.ball;
     // the ball goes out off the other side, right by p1: p1's throw
-    for (const p of m.players) if (p !== me && !p.isKeeper && Math.hypot(p.x - 1500, p.y) < 500) p.y = 900;
-    me.x = 1500; me.y = 60; me.noPickupT = 1;
+    for (const p of m.players) if (p !== me && !p.isKeeper && Math.hypot(p.x - 900, p.y) < 400) p.y = 900;
+    me.x = 900; me.y = 60; me.noPickupT = 1;
     if (b.owner) b.owner = null;
-    b.x = 1500; b.y = -12; b.vx = 0; b.vy = -50; b.z = 0; b.shot = null; b.lastTouchTeam = other;
+    b.x = 900; b.y = -12; b.vx = 0; b.vy = -50; b.z = 0; b.shot = null; b.lastTouchTeam = other;
     const n = ws.got.length;
     const snap = await waitFor(ws, (x) => x.t === 's' && x.ph === PH_RESTART && Array.isArray(x.rs), n, 3000);
     check('the snapshots say a restart is on, and what it is', !!snap && snap.rs[0] === 0, snap && snap.rs);
@@ -98,9 +99,9 @@ const PH_RESTART = 8, PH_PLAY = 1;
     const you = snap ? snap.rs[2] : -1, tws = tseat ? socks[tseat.userId] : ws;
     check('the thrower is drawn with the ball over their head', snap && (snap.p[you][7] & 32) === 32 && snap.b[2] > 40, snap && { flags: snap.p[you][7], z: snap.b[2] });
     check('the clock has stopped', snap && (await (async () => { const t0 = m.time; await sleep(300); return m.time === t0 && m.phase === 'restart'; })()));
-    const banner = ws.got.slice(n).some((x) => x.t === 's' && x.ev.some((e) => e.e === 'f' && e.n === 'showBanner' && e.a[0] === 'THROW-IN'));
+    const banner = ws.got.slice(n).some((x) => x.t === 's' && x.ev.some((e) => e.e === 'f' && e.n === 'showBanner' && e.a[0] === 'OUT OF BOUNDS'));
     const whistle = ws.got.slice(n).some((x) => x.t === 's' && x.ev.some((e) => e.e === 's' && e.n === 'whistle'));
-    check('everyone gets the THROW-IN banner and the whistle', banner && whistle, { banner, whistle });
+    check('everyone gets the OUT OF BOUNDS banner and the whistle', banner && whistle, { banner, whistle });
     // the taker aims into the pitch and presses PASS
     const n2 = tws.got.length;
     tws.msg({ t: 'i', s: 1, x: 0.3, y: 1, sp: 0, a: 32 });
@@ -108,22 +109,23 @@ const PH_RESTART = 8, PH_PLAY = 1;
     tws.msg({ t: 'i', s: 2, x: 0.3, y: 1, sp: 0, a: 1 });
     const back = await waitFor(tws, (x) => x.t === 's' && x.ph === PH_PLAY, n2, 2000);
     check("the taker's PASS takes it, and play goes on", !!back && !back.rs, back && back.ph);
-    check('thrown into the pitch, not back out', back && back.b[4] > 0, back && back.b.slice(0, 6));
+    check('passed into the court, not back out', back && back.b[4] > 0, back && back.b.slice(0, 6));
   }
 
-  console.log('nobody stands about: a restart a bot takes');
+  console.log('nobody stands about: an inbound left alone is taken for them');
   {
     const m = room.m, b = m.ball;
     const n = socks.p2.got.length;
-    // over p1's own goal line wide of the post, off the other side: a goal kick, which a keeper takes
+    // over a baseline off p1's side: the other side's ball, which their real player (p2) takes; left alone, it is taken for them
     const seat = room.seats.find((s) => s.userId === 'p1');
-    const own = seat.team === 'blue' ? 0 : 3000, other = seat.team === 'blue' ? 'red' : 'blue';
+    const other = seat.team === 'blue' ? 'red' : 'blue';
     if (b.owner) b.owner = null;
-    b.x = own === 0 ? -12 : 3012; b.y = 200; b.vx = 0; b.vy = 0; b.z = 0; b.shot = null; b.lastTouchTeam = other;
+    b.x = -12; b.y = 200; b.vx = 0; b.vy = 0; b.z = 0; b.shot = null; b.lastTouchTeam = seat.team;
     const snap = await waitFor(socks.p2, (x) => x.t === 's' && x.ph === PH_RESTART && x.rs, n, 3000);
-    check('a goal kick, taken by a keeper', snap && snap.rs[0] === 2 && m.players[snap.rs[2]] && m.players[snap.rs[2]].isKeeper, snap && snap.rs);
-    const back = await waitFor(socks.p2, (x) => x.t === 's' && x.ph === PH_PLAY, n, 3000);
-    check('taken within a second and a half', !!back);
+    const tk = snap && m.players[snap.rs[2]];
+    check('an inbound from the baseline, to the other side', snap && snap.rs[0] === 0 && snap.rs[11] === 1 && tk && tk.team === other, snap && snap.rs);
+    const back = await waitFor(socks.p2, (x) => x.t === 's' && x.ph === PH_PLAY, n, 9500);
+    check('taken for them within the eight seconds they get (or at once by a fill-in)', !!back);
   }
 
   console.log('the ordinary room never has one');
@@ -164,7 +166,7 @@ const PH_RESTART = 8, PH_PLAY = 1;
     check('on the big pitch, with the rules', r && r.pro && r.m.rules, r && r.pro);
   }
 
-  console.log("who takes a side's throw-ins online: one of its real players, at random");
+  console.log("who takes a side's inbounds online: one of its real players, at random");
   {
     let n = socks.q1.got.length;
     socks.q1.msg({ t: 'room.create', format: '2v2' });
@@ -180,12 +182,18 @@ const PH_RESTART = 8, PH_PLAY = 1;
     check('the two friends are on the same side', r.seats.find((x) => x.userId === 'q2').team === team, r.seats.map((x) => [x.userId, x.team]));
     for (let i = 0; i < 200 && m.phase !== 'play'; i++) await sleep(50);
     const takers = [];
-    const one = async () => {
+    // (only the inbound this puts on: a foul between the bots can start free throws, or the other side's ball, first)
+    const one = async (tries = 4) => {
       for (let i = 0; i < 150 && m.phase !== 'play'; i++) await sleep(20);
       const b = m.ball; if (b.owner) b.owner = null;
-      b.x = 1500; b.y = -12; b.vx = 0; b.vy = -50; b.z = 0; b.shot = null; b.lastTouchTeam = team === 'blue' ? 'red' : 'blue';
+      b.x = 900; b.y = -12; b.vx = 0; b.vy = -50; b.z = 0; b.shot = null; b.lastTouchTeam = team === 'blue' ? 'red' : 'blue';
       for (let i = 0; i < 150 && m.phase !== 'restart'; i++) await sleep(20);
       const R = m.restart, who = R && R.taker;
+      if (R && (R.kind !== 'throw' || R.team !== team) && tries > 0) {
+        R.t = 7.95; if (R.kind === 'ft') R.wait = 0;
+        for (let i = 0; i < 300 && m.phase === 'restart'; i++) await sleep(20);
+        return one(tries - 1);
+      }
       const seat = who && r.seats.find((x) => x.player === who);
       takers.push(!who ? 'none' : seat && seat.human ? seat.userId : 'bot');
       if (R) R.t = 7.95; // (taken for them a moment later)

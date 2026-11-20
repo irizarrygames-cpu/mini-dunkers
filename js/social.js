@@ -236,7 +236,7 @@ const Social = {
       if (Math.random() < 0.45) {
         const scored = mates.filter((p) => p.team === g.team), conceded = mates.filter((p) => p.team !== g.team);
         if (g.scorer && !g.scorer.isHuman && scored.includes(g.scorer) && Math.random() < 0.5) say(["LET'S GO!", 'WOW!'], g.scorer, 0.9 + Math.random() * 1.4);
-        else if (scored.length && Math.random() < 0.75) say(g.scorer && g.scorer.isHuman ? ['NICE ONE!', 'WHAT A GOAL!', 'WOW!'] : ['NICE ONE!', "LET'S GO!"], scored[Math.floor(Math.random() * scored.length)], 1 + Math.random() * 1.6);
+        else if (scored.length && Math.random() < 0.75) say(g.scorer && g.scorer.isHuman ? ['NICE ONE!', 'WHAT A SHOT!', 'WOW!'] : ['NICE ONE!', "LET'S GO!"], scored[Math.floor(Math.random() * scored.length)], 1 + Math.random() * 1.6);
         else if (conceded.length) say(['UNLUCKY', 'DEFEND!', 'WOW!'], conceded[Math.floor(Math.random() * conceded.length)], 1.2 + Math.random() * 1.6);
       }
     }
@@ -257,7 +257,7 @@ const Social = {
     const delay = 0.8 + Math.random() * 1.4;
     if ((said === 'HI!' || said === 'GG') && Math.random() < 0.45) { this.botQuiet = 5; this.botSays = { p: who, line, t: delay }; }
     else if (said === 'SORRY!' && Math.random() < 0.35) { this.botQuiet = 5; this.botSays = { p: who, line: QUICK_CHAT.indexOf('UNLUCKY'), t: delay }; }
-    else if ((said === 'NICE ONE!' || said === 'WHAT A GOAL!') && Math.random() < 0.5) {
+    else if ((said === 'NICE ONE!' || said === 'WHAT A SHOT!') && Math.random() < 0.5) {
       const g = m.goals[m.goals.length - 1];
       if (g && g.scorer && mates.includes(g.scorer)) { this.botQuiet = 5; this.botSays = { p: g.scorer, line: QUICK_CHAT.indexOf('THANKS!'), t: delay }; }
     }
@@ -391,7 +391,7 @@ const Social = {
   },
 };
 
-const EMOTE_LINE_MOOD = { "LET'S GO!": 'joy', 'WOW!': 'joy', 'NICE ONE!': 'joy', 'WHAT A GOAL!': 'joy', 'THANKS!': 'joy', 'UNLUCKY': 'sad', 'DEFEND!': 'sad', 'SORRY!': 'sad', 'HI!': 'hi', 'GG': 'gg' };
+const EMOTE_LINE_MOOD = { "LET'S GO!": 'joy', 'WOW!': 'joy', 'NICE ONE!': 'joy', 'WHAT A SHOT!': 'joy', 'THANKS!': 'joy', 'UNLUCKY': 'sad', 'DEFEND!': 'sad', 'SORRY!': 'sad', 'HI!': 'hi', 'GG': 'gg' };
 const emoteForLine = (line) => (typeof Emotes !== 'undefined' && EMOTE_LINE_MOOD[line] ? Emotes.forMood(EMOTE_LINE_MOOD[line]) : null);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -400,8 +400,8 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&':
 // each of you gets a fill-in teammate, as PRO MATCH is 2v2 and up). Cup runs are never a challenge.
 const CHALLENGE_MODES = ['match', 'pens', 'fk', 'pro'];
 function challengeWhat(mode, upper) {
-  if (mode === 'pens') return upper ? tl('CHALLENGED YOU TO PENALTIES') : tl('challenged you to penalties');
-  if (mode === 'fk') return upper ? tl('CHALLENGED YOU TO FREE KICKS') : tl('challenged you to free kicks');
+  if (mode === 'pens') return upper ? tl('CHALLENGED YOU TO A 3-POINT CONTEST') : tl('challenged you to a 3-point contest');
+  if (mode === 'fk') return upper ? tl('CHALLENGED YOU TO FREE THROWS') : tl('challenged you to free throws');
   if (mode === 'pro') return upper ? tl('CHALLENGED YOU TO A PRO MATCH') : tl('challenged you to a PRO MATCH');
   return upper ? tl('CHALLENGED YOU TO A 1V1') : tl('challenged you to a 1v1');
 }
@@ -416,8 +416,8 @@ Object.assign(UI, {
       <p class="note">${tl('What do you want to play against {0}?', [esc(name)])}</p>
       <div class="modes pen-choice chal-choice">
         ${card('match', 'quick', tl('1V1 MATCH'), tl('ONLINE · {0}', ['1v1']))}
-        ${card('pens', 'pens', tl('PENALTY SHOOTOUT'), tl('ONLINE PENALTIES'))}
-        ${card('fk', 'pens fk', tl('FREE KICKS'), tl('FREE KICKS · 5 EACH, OVER OR ROUND THE WALL'))}
+        ${card('pens', 'pens', tl('3-POINT CONTEST'), tl('ONLINE 3-POINT CONTEST'))}
+        ${card('fk', 'pens fk', tl('FREE THROWS'), tl('FREE THROWS · 5 EACH, TAKE TURNS'))}
         ${card('pro', 'pro', tl('PRO MATCH'), tl('2V2: YOU EACH GET A TEAMMATE'))}
       </div>
       <div class="cup-foot"><button class="mid-btn" data-back>${tl('BACK')}</button></div>`;
@@ -450,8 +450,8 @@ Object.assign(UI, {
         <div class="fr-members">${p.members.map((m) => `<div class="fr-member ${m.you ? 'me' : ''}">${flag(m.club)}${m.leader ? '<i class="crown"></i>' : ''}<b>${esc(m.you ? tl('YOU') : m.name)}</b>${p.lead && !m.you ? `<button class="fr-x" data-kick="${esc(m.name)}" aria-label="${tl('Take out')}">×</button>` : ''}</div>`).join('')}
           ${p.invited.map((n) => `<div class="fr-member invited"><b>${esc(n)}</b><small>${tl('INVITED…')}</small>${p.lead ? `<button class="fr-x" data-kick="${esc(n)}" aria-label="${tl('Cancel invite')}">×</button>` : ''}</div>`).join('')}</div>
         ${p.lead ? `<div class="fr-coop"><b>${tl('PLAY TOGETHER')}</b><small>${tl('All of you on the same side, every time.')}</small>
-          <div class="fr-coop-line"><em>${tl('AGAINST THE COMPUTER')}</em><div class="fr-coop-row">${['2v2', '3v3', '4v4'].filter((f) => p.members.length <= Number(f[0])).map((f) => `<button class="mid-btn green" data-coop="${f}">${f}</button>`).join('')}</div></div>
-          <div class="fr-coop-line"><em>${tl('AGAINST OTHER PEOPLE')}</em><div class="fr-coop-row">${['2v2', '3v3', '4v4'].filter((f) => p.members.length <= Number(f[0])).map((f) => `<button class="mid-btn blue" data-vs="${f}">${f}</button>`).join('')}</div></div></div>` : ''}
+          <div class="fr-coop-line"><em>${tl('AGAINST THE COMPUTER')}</em><div class="fr-coop-row">${['2v2', '3v3'].filter((f) => p.members.length <= Number(f[0])).map((f) => `<button class="mid-btn green" data-coop="${f}">${f}</button>`).join('')}</div></div>
+          <div class="fr-coop-line"><em>${tl('AGAINST OTHER PEOPLE')}</em><div class="fr-coop-row">${['2v2', '3v3'].filter((f) => p.members.length <= Number(f[0])).map((f) => `<button class="mid-btn blue" data-vs="${f}">${f}</button>`).join('')}</div></div></div>` : ''}
         <button class="mid-btn red fr-leave" data-leave="1">${tl('LEAVE PARTY')}</button>
       </section>` : '';
     const challenges = S.liveChallenges().map((i) => `<div class="fr-row ask">${flag(i.club)}<b>${esc(i.from)}</b><small>${challengeWhat(i.mode, true)}</small><button class="mid-btn green" data-accept-challenge="${i.id}">${tl('PLAY')}</button><button class="mid-btn red" data-decline-challenge="${i.id}">${tl('NO')}</button></div>`).join('');
@@ -460,7 +460,7 @@ Object.assign(UI, {
     // a name is a button: it opens that player, to block them or report their name
     const who = (name) => `<button type="button" class="fr-name" data-player="${esc(name)}">${esc(name)}</button>`;
     const asks = S.incoming.map((f) => `<div class="fr-row ask">${flag(f.club)}${who(f.name)}<small>${tl('WANTS TO BE FRIENDS')}</small><button class="mid-btn green" data-accept="${esc(f.name)}">${tl('ACCEPT')}</button><button class="mid-btn red" data-decline="${esc(f.name)}">${tl('NO')}</button></div>`).join('');
-    const partyFull = p && p.members.length + p.invited.length >= 4;
+    const partyFull = p && p.members.length + p.invited.length >= 3;   // (3v3 is the biggest side)
     const rows = S.friends.map((f) => {
       let act = '';
       if (inParty(f.name)) act = `<span class="fr-tag">${tl('IN YOUR PARTY')}</span>`;
@@ -482,7 +482,7 @@ Object.assign(UI, {
       ${rows || `<p class="note fr-empty">${S.loaded ? tl('No friends yet. Ask your mates for their username and add them here.') : tl('Connecting…')}</p>`}
       ${sent ? `<h3 class="fr-h">${tl('SENT')}</h3>${sent}` : ''}
       ${S.blocked.length ? `<h3 class="fr-h">${tl('BLOCKED · {0}', [S.blocked.length])}</h3>${S.blocked.map((b) => `<div class="fr-row blocked"><b>${esc(b.name)}</b><small>${tl('BLOCKED')}</small><button class="mid-btn" data-unblock="${esc(b.name)}">${tl('UNBLOCK')}</button></div>`).join('')}` : ''}
-      <p class="note fr-foot">${tl('Challenge an online friend to a 1v1, penalties, free kicks or a PRO MATCH, invite them to your party to play on the same team, or run a cup between the lot of you. Only the quick chat lines can be sent in a match. Tap a name to block that player or report their name.')}</p>
+      <p class="note fr-foot">${tl('Challenge an online friend to a 1v1, a 3-point contest, free throws or a PRO MATCH, invite them to your party to play on the same team, or run a cup between the lot of you. Only the quick chat lines can be sent in a match. Tap a name to block that player or report their name.')}</p>
       <div class="fr-safety"><button type="button" class="auth-guest" data-findplayer>${tl('BLOCK OR REPORT A PLAYER')}</button></div>`;
     body.querySelectorAll('canvas[data-club]').forEach((cv) => this.flagBadge(cv, Clubs.get(cv.dataset.club)));
     const input = body.querySelector('#fr-name');

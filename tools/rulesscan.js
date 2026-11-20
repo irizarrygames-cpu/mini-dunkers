@@ -1,319 +1,186 @@
-// PRO MATCH (build 115): the bigger pitch and the real rules, played out by bots, headless.
+// PRO MATCH, the basketball rules (js/rules.js), on the real engine with no screen:
 //   node tools/rulesscan.js
-// Loads the real game code into the server's sandbox (plus js/rules.js, which only offline matches
-// use), switches to the PRO pitch and plays whole matches in every format, checking that:
-//   * the ball going out is always turned into the right restart (a throw-in to the side that did
-//     not touch it last; a corner or a goal kick by who touched it last), taken from the right spot
-//   * every restart is taken, quickly, and play goes on (nothing gets stuck)
-//   * the other side keeps its distance while a restart is set up, and the clock stops
-//   * the ball never leaves the arena and nothing goes NaN
-//   * nobody scores straight from a throw-in
-//   * and the normal pitch is untouched by any of it (back to 2400 x 1400 afterwards)
-const fs = require('fs');
-const path = require('path');
+// 1. Out of bounds over a sideline and over a baseline: whose ball, from where, the taker outside
+//    the line with it over their head, the other side standing back, never from behind the board.
+// 2. The shot clock: hold it for 12 seconds and it is the other side's ball; a shot starts it again.
+// 3. Fouls: a reach-in on a shooter is free throws (two, three for a three), anywhere else their ball.
+// 4. Free throws: by the release, a made last one is the other side's inbound, a missed one is live.
+// 5. Whole matches with bots on both sides: nothing throws, nothing gets stuck, the score adds up,
+//    and an ordinary match never has a restart.
+'use strict';
 const { createSim } = require('../server/sim');
 
-let failures = 0;
-const check = (name, ok, detail) => { console.log((ok ? '  ok   ' : '  FAIL ') + name + (detail !== undefined ? '  ' + JSON.stringify(detail) : '')); if (!ok) failures++; };
-
 const sim = createSim();
-sim.run('globalThis.Rules = Rules;'); // (js/rules.js is in the sandbox: the server plays PRO rooms with it)
-// the sandbox has no screen: the banner and the whistle go nowhere
-sim.run('Game.headless = true; Game.demo = null;');
+sim.run('Game.headless = true; Save.data = Save.defaults(); Save.data.tutorialSeen = true;');
+const { CFG, Clubs } = sim;
+const Rules = sim.run('Rules');
+let fail = 0;
+const check = (label, ok, info) => { console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${label}${info !== undefined ? '  ' + JSON.stringify(info) : ''}`); if (!ok) fail++; };
 
-const normal = sim.run('({ W: CFG.FIELD_W, H: CFG.FIELD_H, walls: WALLS.length, gy1: GOAL_Y1 })');
-sim.run("Pitch.use('pro')");
-const pro = sim.run('({ W: CFG.FIELD_W, H: CFG.FIELD_H, walls: WALLS.length, gy1: GOAL_Y1, gy2: GOAL_Y2, side: CFG.SIDE_M, end: CFG.END_M, chamfer: CFG.CHAMFER })');
-check('the PRO pitch is a quarter bigger each way', pro.W === 3000 && pro.H === 1750, pro);
-check('its goals are centred on it', Math.abs((pro.gy1 + pro.gy2) / 2 - pro.H / 2) < 1e-9, pro);
-// a corner taker stands behind the ball, outside the corner of the pitch: that spot has to be inside the boards
-const room = sim.run(`(() => { const ins = (x, y) => insideArena(x, y); return [ins(-14, -14), ins(CFG.FIELD_W + 14, -14), ins(-14, CFG.FIELD_H + 14), ins(CFG.FIELD_W + 14, CFG.FIELD_H + 14), ins(1500, -20)]; })()`);
-check('there is room behind every corner flag, and outside the touchline for a throw', room.every(Boolean), room);
+class SI {
+  constructor() { this.move = { x: 0, y: 0 }; this.q = 0; this.shootHeld = false; this.sprintHeld = false; }
+  take(b) { const v = (this.q & b) !== 0; this.q &= ~b; return v; }
+  consumePass() { return this.take(1); } consumeSkill() { return this.take(2); } consumeSlide() { return this.take(4); }
+  consumeShootPress() { return this.take(8); } consumeShootRelease() { return this.take(16); } consumePassPress() { return this.take(32); } consumeUlt() { return this.take(64); }
+}
+function proMatch(format = '2v2', mode = 'pro') {
+  sim.run(`Pitch.use('${mode === 'pro' ? 'pro' : 'normal'}')`);
+  const m = sim.Match.create({ mode, club: Clubs.get('croatia'), format, minutes: 2 });
+  for (const h of m.humans) h.input = new SI();
+  for (let i = 0; i < 600 && m.phase !== 'play'; i++) sim.Match.step(m, CFG.STEP);
+  return m;
+}
+const steps = (m, n) => { for (let i = 0; i < n; i++) sim.Match.step(m, CFG.STEP); };
+const W = () => CFG.FIELD_W, H = () => CFG.FIELD_H;
 
-sim.run(`
-globalThis.__play = function (format, seed) {
-  let s = seed >>> 0; Math.random = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
-  const m = Match.create({ autopilot: true, mode: 'pro', format, minutes: 2 });
-  const log = { restarts: [], wrong: [], stuck: 0, maxSetup: 0, crowd: 0, clockMoved: 0, outside: 0, nan: 0, throwGoals: 0, goals: 0, steps: 0, outs: 0, rules: m.rules };
-  let setup = 0, lastPhase = m.phase, clockAt = 0, lastOutBy = null;
-  const origStart = Rules.start.bind(Rules);
-  Rules.start = function (mm) {
-    const b = mm.ball, W = CFG.FIELD_W, H = CFG.FIELD_H, last = b.lastTouchTeam;
-    const was = { x: b.x, y: b.y, last };
-    origStart(mm);
-    const R = mm.restart; log.outs++;
-    if (!R) { log.wrong.push(['no restart', was]); return; }
-    let want;
-    if (was.y < -CFG.BALL_R || was.y > H + CFG.BALL_R) want = { kind: 'throw', team: last === 'blue' ? 'red' : 'blue' };
-    else {
-      const leftEnd = was.x < W / 2, defending = ownGoalX('blue') === (leftEnd ? 0 : W) ? 'blue' : 'red';
-      want = last === defending ? { kind: 'corner', team: defending === 'blue' ? 'red' : 'blue' } : { kind: 'goalkick', team: defending };
-    }
-    if (R.kind !== want.kind || R.team !== want.team) log.wrong.push(['restart', R.kind, R.team, want, was]);
-    if (R.kind === 'goalkick' && !R.taker.isKeeper) log.wrong.push(['goal kick not by the keeper']);
-    if (R.kind !== 'goalkick' && R.taker.isKeeper) log.wrong.push(['keeper taking a ' + R.kind]);
-    if (R.taker.team !== R.team) log.wrong.push(['taker from the wrong side']);
-    if (R.kind === 'throw' && !(R.by === 0 || R.by === H)) log.wrong.push(['throw not on the line', R.by]);
-    if (R.kind === 'corner' && !((R.bx < 20 || R.bx > W - 20) && (R.by < 20 || R.by > H - 20))) log.wrong.push(['corner not at a flag', R.bx, R.by]);
-    log.restarts.push(R.kind);
-  };
-  const origGoal = Match.goalScored.bind(Match);
-  Match.goalScored = function (mm, team) {
-    log.goals++;
-    if (mm.ball.restartKind === 'throw' && mm.ball.restartBy && mm.ball.lastKicker === mm.ball.restartBy && mm.ball.lastTouchTeam === mm.ball.restartBy.team) log.throwGoals++;
-    return origGoal(mm, team);
-  };
-  // the bots keep it in the middle, so now and then somebody hoofs it towards a line (the way you would)
-  let guard = 0, hoofIn = 2;
-  const hoof = () => {
-    const b = m.ball, W = CFG.FIELD_W, H = CFG.FIELD_H;
-    let p = b.owner;
-    if (!p) { let best = 1e9; for (const q of m.players) { const d = Math.hypot(q.x - b.x, q.y - b.y); if (d < best) { best = d; p = q; } } }
-    if (!p || p.isKeeper) return;
-    if (b.owner) loseBall(m, b.owner, 0.5);
-    const side = Math.floor(Math.random() * 4);
-    const tx = side < 2 ? b.x + (Math.random() - 0.5) * 900 : (side === 2 ? -80 : W + 80);
-    const ty = side === 0 ? -80 : side === 1 ? H + 80 : (Math.random() < 0.5 ? Math.random() * GOAL_Y1 * 0.9 : H - Math.random() * GOAL_Y1 * 0.9);
-    const d = Math.hypot(tx - b.x, ty - b.y) || 1, sp = 700 + Math.random() * 700;
-    b.vx = (tx - b.x) / d * sp; b.vy = (ty - b.y) / d * sp; b.vz = Math.random() < 0.3 ? 200 : 0;
-    b.lastKicker = p; b.lastTouchTeam = p.team; b.shot = null; b.trailType = 'pass';
-    p.noPickupT = Math.max(p.noPickupT || 0, 0.4);
-    log.hoofs++;
-  };
-  log.hoofs = 0;
-  while (m.phase !== 'over' && guard < 400000) {
-    guard++;
-    const clock0 = m.clock, before = m.phase;
-    if (m.phase === 'play') { hoofIn -= CFG.STEP; if (hoofIn <= 0) { hoofIn = 2 + Math.random() * 3; hoof(); } }
-    Match.step(m, CFG.STEP);
-    log.steps++;
-    const b = m.ball;
-    if (!isFinite(b.x + b.y + b.z)) log.nan++;
-    if (!insideArena(b.x, b.y)) log.outside++;
-    if (m.phase === 'restart') {
-      setup += CFG.STEP; log.maxSetup = Math.max(log.maxSetup, setup);
-      if (before === 'restart' && m.clock !== clock0) log.clockMoved++;
-      const R = m.restart;
-      if (R && R.t > 0.4) for (const p of m.players) if (p.team !== R.team && !p.isKeeper && Math.hypot(p.x - R.bx, p.y - R.by) < Rules.CLEAR - 1) { log.crowd++; if (log.crowd < 4) log.wrong.push(["crowd", R.kind, +R.t.toFixed(2), R.bx, R.by, Math.round(p.x), Math.round(p.y), Math.round(Math.hypot(p.x - R.bx, p.y - R.by)), p.slideT, p.vx, p.vy]); }
-    } else setup = 0;
-    if (m.phase === 'over' && m.result) break;
-    if (m.phase === 'timeup' && m.phaseT > 1.6) break;
+console.log('out of bounds');
+{
+  const m = proMatch();
+  const b = m.ball;
+  b.owner = null; b.x = 700; b.y = -40; b.z = 0; b.vx = 0; b.vy = 0; b.shot = null; b.lastTouchTeam = 'red';
+  steps(m, 2);
+  const R = m.restart;
+  check('over a sideline: a restart, the other side\'s ball (blue)', m.phase === 'restart' && R && R.kind === 'throw' && R.team === 'blue', R && { kind: R.kind, team: R.team });
+  check('from the sideline, where it went out', R && R.by === 0 && Math.abs(R.bx - 700) < 2, R && [R.bx, R.by]);
+  check('the taker outside the line, the ball over their head', R && R.taker.y < 0 && b.owner === R.taker && b.z > 40, R && { y: R.taker.y, z: b.z });
+  check('you take your own side\'s (offline)', R && R.taker === m.human && R.human);
+  steps(m, 120);
+  const near = m.players.filter((p) => p.team !== R.team && Math.hypot(p.x - R.bx, p.y - R.by) < Rules.CLEAR - 5);
+  check('the other side stands back', near.length === 0, near.map((p) => Math.round(Math.hypot(p.x - R.bx, p.y - R.by))));
+  check('the clock stops while it is set up', (() => { const t0 = m.time; steps(m, 60); return m.time === t0; })());
+  m.human.input.move.x = 0.3; m.human.input.move.y = 1; m.human.input.q |= 1;
+  steps(m, 3);
+  check('PASS plays it in, into the court', m.phase === 'play' && !m.restart && b.vy > 0, { phase: m.phase, vy: Math.round(b.vy) });
+
+  // over a baseline, right behind the board: from beside the board instead
+  steps(m, 30);
+  b.owner = null; b.x = -30; b.y = H() / 2 + 10; b.vx = 0; b.vy = 0; b.z = 0; b.shot = null; b.lastTouchTeam = 'blue';
+  steps(m, 2);
+  const R2 = m.restart;
+  check('over a baseline: red\'s ball from the baseline', R2 && R2.team === 'red' && R2.base && R2.bx === 0, R2 && { team: R2.team, base: R2.base, bx: R2.bx });
+  check('never from right behind the backboard', R2 && Math.abs(R2.by - H() / 2) >= CFG.BOARD_W / 2 + 50, R2 && R2.by);
+  let t = 0; while (m.phase === 'restart' && t < 600) { sim.Match.step(m, CFG.STEP); t++; }
+  check('a bot takes its own within a second and a half', m.phase === 'play' && t <= 1.6 * 120, { steps: t });
+
+  // carried over the line
+  steps(m, 20);
+  const red = m.players.find((p) => p.team === 'red');
+  b.owner = red; red.x = 900; red.y = H() + 30; b.x = red.x; b.y = red.y;
+  steps(m, 2);
+  check('carried over a line: the other side\'s ball', m.restart && m.restart.team === 'blue', m.restart && m.restart.team);
+}
+
+console.log('the shot clock');
+{
+  const m = proMatch();
+  const b = m.ball, h = m.human;
+  // you have it, and stand there
+  for (const p of m.players) if (p.team !== h.team) { p.x = 100; p.y = 100; p.speedMul = 0; }
+  b.owner = h; h.protectT = 99; m.shotClock = CFG.SHOT_CLOCK;
+  let t = 0;
+  while (m.phase === 'play' && t < 120 * 14) { sim.Match.step(m, CFG.STEP); b.owner = h; t++; }
+  check('12 seconds and it is the other side\'s ball', m.phase === 'restart' && m.restart.why === 'clock' && m.restart.team !== h.team, { secs: (t / 120).toFixed(1), why: m.restart && m.restart.why });
+  check('from the sideline', m.restart && (m.restart.by === 0 || m.restart.by === H()));
+  // a shot in the air starts it again
+  const m2 = proMatch();
+  m2.shotClock = 3; m2.ball.shot = { team: 'blue', T: 1, t: 0, x0: 0, y0: 0, z0: 0, ex: 0, ey: 0, ez: 0, apex: 0 };
+  Rules.check(m2, CFG.STEP);
+  check('a shot in the air starts it again', m2.shotClock === CFG.SHOT_CLOCK, m2.shotClock);
+}
+
+console.log('fouls');
+{
+  const m = proMatch();
+  const h = m.human, def = m.players.find((p) => p.team !== h.team);
+  // a shooter, from behind: always a foul here (the dice say so), three shots from behind the arc
+  const hx = sim.run(`hoopX('${h.team}')`), dir = sim.run(`TEAMS['${h.team}'].dir`);
+  h.x = hx - dir * 560; h.y = H() / 2; h.charging = true; m.ball.owner = h;
+  const wasThree = sim.run(`isThree('${h.team}', ${h.x}, ${h.y})`);
+  sim.run('globalThis.__rnd = globalThis.__rnd || Math.random; Math.random = () => 0.01');
+  Rules.reachIn(m, def, h, true);
+  sim.run('Math.random = globalThis.__rnd');
+  check('a reach-in on a shooter is free throws', m.phase === 'restart' && m.restart.kind === 'ft' && m.restart.taker === h, m.restart && m.restart.kind);
+  check('three of them for a three', m.restart && m.restart.n === 3 && wasThree, m.restart && m.restart.n);
+  check('the foul is counted', (def.stats.fouls || 0) === 1 && m.fouls && m.fouls[def.team] === 1);
+  // a dribbler away from the basket: their ball from the side
+  const m2 = proMatch(), h2 = m2.human, d2 = m2.players.find((p) => p.team !== h2.team);
+  h2.x = CFG.FIELD_W / 2; h2.y = 300; h2.charging = false; m2.ball.owner = h2;
+  sim.run('globalThis.__rnd = globalThis.__rnd || Math.random; Math.random = () => 0.01');
+  Rules.reachIn(m2, d2, h2, true);
+  sim.run('Math.random = globalThis.__rnd');
+  check('anywhere else: their ball from the side', m2.restart && m2.restart.kind === 'throw' && m2.restart.why === 'foul' && m2.restart.team === h2.team, m2.restart && { kind: m2.restart.kind, why: m2.restart.why });
+  // and not every miss is a foul
+  let fouls = 0;
+  for (let i = 0; i < 400; i++) {
+    const m3 = proMatch('1v1'), h3 = m3.human, d3 = m3.players.find((p) => p.team !== h3.team);
+    h3.x = CFG.FIELD_W / 2; h3.y = 300; m3.ball.owner = h3;
+    Rules.reachIn(m3, d3, h3, false);
+    if (m3.restart) fouls++;
+    if (i >= 150) break;
   }
-  log.stuck = guard >= 400000 ? 1 : 0;
-  log.over = m.phase;
-  Rules.start = origStart; Match.goalScored = origGoal;
-  return log;
-};
-`);
+  check('a reach-in from in front is only now and then a foul', fouls > 2 && fouls < 40, { of: 151, fouls });
+}
 
-console.log('PRO MATCH, bots against bots, every format');
-const totals = { throw: 0, corner: 0, goalkick: 0, matches: 0, goals: 0 };
-let wrong = [], worstSetup = 0, crowd = 0, clockMoved = 0, outside = 0, nan = 0, throwGoals = 0, stuck = 0, notRules = 0;
-for (const format of ['2v2', '3v3', '4v4']) {
+console.log('free throws');
+{
+  const go = (at) => {
+    let made = 0, shots = 0, live = 0, inbound = 0;
+    for (let i = 0; i < 120; i++) {
+      const m = proMatch(), h = m.human;
+      Rules.freeThrows(m, h, 2);
+      const before = m.score[h.team];
+      let pressed = false, g = 0, lastMade = null;
+      while (m.phase === 'restart' && m.restart.kind === 'ft' && g++ < 120 * 20) {
+        const R = m.restart;
+        if (!R.fly) {
+          if (!pressed && R.t > 0.4) { h.input.q |= 8; h.input.shootHeld = true; pressed = true; }
+          if (pressed && h.charging && h.chargeT / CFG.METER_T >= at) { h.input.q |= 16; h.input.shootHeld = false; pressed = false; }
+        } else lastMade = R.fly.make;
+        sim.Match.step(m, CFG.STEP);
+      }
+      made += m.score[h.team] - before; shots += 2;
+      if (lastMade === false && m.phase === 'play') live++;
+      if (lastMade === true && m.restart && m.restart.kind === 'throw' && m.restart.team !== h.team && m.restart.base) inbound++;
+      const goalsSum = m.goals.reduce((n, gg) => n + (gg.pts || 1), 0);
+      if (goalsSum !== m.score.blue + m.score.red) { check('the score matches the baskets', false, { goalsSum, score: m.score }); break; }
+    }
+    return { pct: made / shots, live, inbound };
+  };
+  const perfect = go(0.9), early = go(0.5);
+  check('let go in the green: nearly always in', perfect.pct > 0.88, (perfect.pct * 100).toFixed(0) + '%');
+  check('let go early: more often out than in', early.pct < 0.6 && early.pct > 0.2, (early.pct * 100).toFixed(0) + '%');
+  check('a made last one: the other side\'s ball from their baseline', perfect.inbound > 50, perfect.inbound);
+  check('a missed last one: the ball is live', early.live > 20, early.live);
+}
+
+console.log('whole matches, bots on both sides');
+{
+  let restarts = 0, stuck = 0, errors = [], bad = 0, ordinaryRestarts = 0, pts = 0;
   for (let i = 0; i < 8; i++) {
-    const r = sim.run(`__play(${JSON.stringify(format)}, ${1000 + i * 7919 + format.charCodeAt(0)})`);
-    totals.matches++; totals.goals += r.goals;
-    for (const k of r.restarts) totals[k]++;
-    wrong = wrong.concat(r.wrong.slice(0, 3));
-    worstSetup = Math.max(worstSetup, r.maxSetup); crowd += r.crowd; clockMoved += r.clockMoved; outside += r.outside; nan += r.nan; throwGoals += r.throwGoals; stuck += r.stuck;
-    if (!r.rules) notRules++;
+    const m = proMatch(i % 2 ? '3v3' : '2v2');
+    m.autopilot = true;
+    let rT = 0, last = null, g = 0;
+    while (m.phase !== 'over' && g++ < 120 * 60 * 6) {
+      try { sim.Match.step(m, CFG.STEP); } catch (e) { errors.push(e.message); break; }
+      if (m.restart && m.restart !== last) restarts++;
+      last = m.restart;
+      if (m.phase === 'restart') { rT += CFG.STEP; if (rT > 12) { stuck++; break; } } else rT = 0;
+    }
+    if (m.goals.reduce((n, gg) => n + (gg.pts || 1), 0) !== m.score.blue + m.score.red) bad++;
+    pts += m.score.blue + m.score.red;
   }
+  for (let i = 0; i < 4; i++) {
+    const m = proMatch('3v3', 'quick');
+    m.autopilot = true;
+    let g = 0;
+    while (m.phase !== 'over' && g++ < 120 * 60 * 6) { sim.Match.step(m, CFG.STEP); if (m.phase === 'restart' || m.restart) { ordinaryRestarts++; break; } }
+  }
+  check('nothing throws', errors.length === 0, errors.slice(0, 3));
+  check('no restart is ever stuck', stuck === 0, stuck);
+  check('the score always matches the baskets', bad === 0, bad);
+  check('restarts happen (out of bounds, fouls)', restarts > 4, { restarts, pointsPerMatch: (pts / 8).toFixed(1) });
+  check('an ordinary match never has one', ordinaryRestarts === 0, ordinaryRestarts);
 }
-console.log('  ' + JSON.stringify(totals));
-check('a PRO match plays by the rules', notRules === 0, notRules);
-check('the ball goes out, and all three restarts happen', totals.throw > 100 && totals.corner > 20 && totals.goalkick > 20, totals);
-check('every out is the right restart, from the right spot, by the right player', wrong.length === 0, wrong.slice(0, 4));
-check('every restart is taken (a bot within 1.5 s)', worstSetup <= 1.6, +worstSetup.toFixed(2));
-check('the other side keeps its distance while it is set up', crowd === 0, crowd);
-check('the clock stops while a restart is set up', clockMoved === 0, clockMoved);
-check('the ball never leaves the arena', outside === 0, outside);
-check('nothing goes NaN', nan === 0, nan);
-check('nobody scores straight from a throw-in', throwGoals === 0, throwGoals);
-check('every match ends', stuck === 0, stuck);
-check('goals still go in', totals.goals > totals.matches, totals.goals);
 
-console.log('PRO MATCH with you in it (your restarts, your buttons)');
-sim.run(`
-globalThis.__you = function (seed, format) {
-  let s = seed >>> 0; Math.random = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
-  const m = Match.create({ mode: 'pro', format, minutes: 3 });
-  const F = { move: { x: 0, y: 0 }, sprintHeld: false, aim: null, q: {},
-    press(k) { this.q[k] = true; },
-    take(k) { const v = !!this.q[k]; this.q[k] = false; return v; },
-    consumePass() { return this.take('pass'); }, consumePassPress() { return this.take('passPress'); },
-    consumeShootPress() { return this.take('shootPress'); }, consumeShootRelease() { return this.take('shootRelease'); },
-    consumeSkill() { return false; }, consumeSlide() { return false; }, consumeUlt() { return false; } };
-  const h = m.human; h.input = F;
-  const log = { mine: 0, byPass: 0, byLong: 0, byWait: 0, asked: 0, askedGot: 0, wrongWay: [], stuck: 0, legal: 0, waitT: 0, outs: 0, shotAtCorner: 0, ourThrows: 0, notMine: 0 };
-  let plan = null, guard = 0, hoofIn = 2, wander = 0;
-  while (m.phase !== 'over' && guard < 300000) {
-    guard++;
-    // in play: run about, and now and then hoof it at a line
-    if (m.phase === 'play') {
-      wander -= CFG.STEP; if (wander <= 0) { wander = 1; const a = Math.random() * 6.283; F.move = { x: Math.cos(a), y: Math.sin(a) }; }
-      hoofIn -= CFG.STEP;
-      if (hoofIn <= 0) {
-        hoofIn = 2 + Math.random() * 2.5;
-        const b = m.ball; let p = b.owner;
-        if (!p) { let best = 1e9; for (const q of m.players) { const d = Math.hypot(q.x - b.x, q.y - b.y); if (d < best) { best = d; p = q; } } }
-        if (p && !p.isKeeper) {
-          if (b.owner) loseBall(m, b.owner, 0.5);
-          const top = Math.random() < 0.5, end = Math.random() < 0.3;
-          const tx = end ? (Math.random() < 0.5 ? -80 : CFG.FIELD_W + 80) : b.x + (Math.random() - 0.5) * 600, ty = end ? (top ? 200 : CFG.FIELD_H - 200) : (top ? -80 : CFG.FIELD_H + 80);
-          const d = Math.hypot(tx - b.x, ty - b.y) || 1;
-          b.vx = (tx - b.x) / d * 1100; b.vy = (ty - b.y) / d * 1100; b.lastKicker = p; b.lastTouchTeam = p.team; b.shot = null;
-          p.noPickupT = 0.4;
-          // half the time it is the other side's, and you are the one nearest where it goes out
-          if (p.team !== h.team && Math.random() < 0.6) {
-            const ox = clamp(end ? tx : b.x + (tx - b.x) * ((top ? -b.y : CFG.FIELD_H - b.y) / ((ty - b.y) || 1)), 60, CFG.FIELD_W - 60);
-            h.x = clamp(ox + (Math.random() < 0.5 ? -1 : 1) * 110, 40, CFG.FIELD_W - 40); h.y = end ? (top ? 260 : CFG.FIELD_H - 260) : (top ? 70 : CFG.FIELD_H - 70);
-            h.noPickupT = 1;
-          }
-        }
-      }
-    }
-    // a restart: yours to take, or your side's and you ask for it
-    const R = m.restart;
-    if (m.phase === 'restart' && R && !plan) {
-      log.outs++;
-      // build 117: offline, your side's throw-ins and corners are always yours to take
-      if (R.team === h.team && R.kind !== 'goalkick') { log.ourThrows++; if (R.taker !== h) log.notMine++; }
-      if (R.human) {
-        log.mine++;
-        const k = log.mine % 4;
-        // 0: tap PASS aiming somewhere; 1: hold SHOOT; 2: aim back out over the line, then PASS; 3: leave it
-        plan = { R, kind: R.kind, how: k, at: 0.3 + Math.random() * 0.8, dir: k === 2 ? { x: R.by <= 1 ? 0 : R.by >= CFG.FIELD_H - 1 ? 0 : (R.bx < CFG.FIELD_W / 2 ? -1 : 1), y: R.by <= 1 ? -1 : R.by >= CFG.FIELD_H - 1 ? 1 : 0 } : { x: Math.random() * 2 - 1, y: Math.random() * 2 - 1 } };
-      } else if (R.team === h.team && h !== R.taker && Math.random() < 0.5) {
-        plan = { R, ask: true, at: 0.1 };
-      } else plan = { R, none: true };
-    }
-    if (plan && m.phase === 'restart' && m.restart === plan.R) {
-      const t = plan.R.t;
-      if (plan.none) {}
-      else if (plan.ask) { if (t >= plan.at && !plan.done) { F.press('pass'); plan.done = true; log.asked++; } }
-      else if (plan.how === 3) { F.move = { x: 0, y: 0 }; }
-      else if (t >= plan.at) {
-        F.move = plan.dir;
-        if (plan.how === 0 || plan.how === 2) { if (!plan.done) { F.press('passPress'); plan.done = 1; } else if (plan.done === 1 && t >= plan.at + 0.1) { F.press('pass'); plan.done = 2; } }
-        if (plan.how === 1) { if (!plan.done) { F.press('shootPress'); plan.done = 1; } else if (plan.done === 1 && t >= plan.at + 0.35) { F.press('shootRelease'); plan.done = 2; } }
-      }
-    }
-    const was = m.phase;
-    Match.step(m, CFG.STEP);
-    if (plan && was === 'restart' && m.phase !== 'restart') {
-      // it has just been taken: which way did it go?
-      const b = m.ball, P = plan.R, sp = Math.hypot(b.vx, b.vy);
-      if (!plan.none && !plan.ask) {
-        if (plan.how === 0 || plan.how === 2) log.byPass++; else if (plan.how === 1) log.byLong++; else { log.byWait++; log.waitT = Math.max(log.waitT, P.t); }
-        if (plan.how === 1 && P.kind === 'corner' && b.shot) log.shotAtCorner++;
-      }
-      if (plan.ask) { const lp = b.lastPass; if (lp && lp.target === h) log.askedGot++; }
-      // never straight back out over the line it was taken from
-      const W = CFG.FIELD_W, H = CFG.FIELD_H, ux = b.vx / (sp || 1), uy = b.vy / (sp || 1);
-      let into;
-      if (P.kind === 'throw') into = P.by <= 1 ? uy > 0.1 : uy < -0.1;
-      else if (P.kind === 'goalkick') into = P.bx < W / 2 ? ux > 0.25 : ux < -0.25;
-      else {
-        const inY = P.by <= 20 ? uy > 0.1 : uy < -0.1;
-        const inX = P.bx <= 20 ? ux > 0.1 : ux < -0.1;
-        into = inY && (inX || !!b.shot);
-      }
-      if (!into || sp < 100) log.wrongWay.push([P.kind, P.bx, P.by, Math.round(b.vx), Math.round(b.vy), plan.how]); else log.legal++;
-      plan = null;
-    }
-    if (plan && m.phase !== 'restart') plan = null;
-    if (m.phase === 'timeup' && m.phaseT > 1.6) break;
-  }
-  log.stuck = guard >= 300000 ? 1 : 0;
-  return log;
-};
-`);
-const you = { mine: 0, byPass: 0, byLong: 0, byWait: 0, asked: 0, askedGot: 0, legal: 0, outs: 0, shotAtCorner: 0, ourThrows: 0, notMine: 0 };
-let youWrong = [], youStuck = 0, youWait = 0;
-for (let i = 0; i < 9; i++) {
-  const r = sim.run(`__you(${7 + i * 104729}, '${['2v2', '3v3', '4v4'][i % 3]}')`);
-  for (const k in you) you[k] += r[k];
-  youWrong = youWrong.concat(r.wrongWay); youStuck += r.stuck; youWait = Math.max(youWait, r.waitT);
-}
-console.log('  ' + JSON.stringify(you));
-check('you take your own throw-ins, corners and goal kicks', you.mine > 30 && you.byPass > 10 && you.byLong > 5 && you.byWait > 3, you);
-check('PASS plays it, SHOOT hits the long one, and leaving it gets it taken for you after 8 s', youWait >= 7.9 && youWait <= 8.1, +youWait.toFixed(2));
-check('at a corner, SHOOT is a go at goal', you.shotAtCorner > 0 || you.byLong < 6, you.shotAtCorner);
-check('nothing is ever played back out over the line it is taken from (even aimed that way)', youWrong.length === 0, youWrong.slice(0, 4));
-check("every one of your side's throw-ins and corners is yours to take", you.ourThrows > 20 && you.notMine === 0, { ours: you.ourThrows, notYours: you.notMine });
-check('when your keeper takes a goal kick, PASS asks for it, and you get it', you.asked > 0 && you.askedGot >= you.asked * 0.8, { asked: you.asked, got: you.askedGot });
-check('your matches end', youStuck === 0, youStuck);
-
-console.log('PRO MATCH is 2v2 or bigger');
-const fm = sim.run(`['1v1', '2v2', '3v3', '4v4'].map((f) => { const m = Match.create({ autopilot: true, mode: 'pro', format: f, minutes: 2 }); return [f, m.format, m.players.length]; })`);
-check('picking 1v1 plays 2v2; the rest as picked', fm[0][1] === '2v2' && fm[1][1] === '2v2' && fm[2][1] === '3v3' && fm[3][1] === '4v4', fm);
-const fq = sim.run(`Match.create({ autopilot: true, mode: 'quick', format: '1v1', minutes: 2 }).format`);
-check('an ordinary match can still be 1v1', fq === '1v1', fq);
-
-console.log('a shot straight from a corner (SHOOT at a corner)');
-const cs = sim.run(`(() => {
-  const res = { n: 0, curled: 0, goals: 0, wide: 0, wrongFirst: 0 }, W = CFG.FIELD_W, H = CFG.FIELD_H;
-  for (let i = 0; i < 900; i++) {
-    const m = Match.create({ autopilot: true, mode: 'pro', format: ['2v2', '3v3', '4v4'][i % 3], minutes: 2 });
-    m.phase = 'play';
-    const b = m.ball; if (b.owner) loseBall(m, b.owner, 0);
-    const gx = attackGoalX('blue'); b.x = gx === W ? W + 12 : -12; b.y = i % 2 ? 200 : H - 200; b.lastTouchTeam = 'red';
-    Rules.start(m);
-    for (let k = 0; k < 60 && m.restart; k++) Rules.step(m, CFG.STEP);
-    if (!m.restart || m.restart.kind !== 'corner') continue;
-    const R = m.restart; res.n++;
-    Rules.take(m, 'long', R.ax, R.ay, 0.2 + Math.random() * 0.6);
-    if (b.spinT > 0 && b.shot && b.shot.curl) res.curled++;
-    if ((R.bx < W / 2 ? b.vx : -b.vx) < 0 && !(b.spinT > 0)) res.wrongFirst++;
-    const s0 = m.score.blue;
-    for (let k = 0; k < 120 * 5 && m.phase === 'play'; k++) Match.step(m, CFG.STEP);
-    if (m.score.blue > s0 || m.phase === 'goal') res.goals++;
-    else if (m.phase === 'restart' && m.restart.kind === 'goalkick') res.wide++;
-  }
-  return res;
-})()`);
-console.log('  ' + JSON.stringify(cs) + '  goals ' + (cs.goals / cs.n * 100).toFixed(1) + '%');
-check('it curls (every time)', cs.curled === cs.n, cs);
-check('it hardly ever goes wide', cs.wide <= cs.n * 0.03, cs.wide);
-check('it is a real chance, not a sure thing: 6-20% go in (the keeper reads it)', cs.goals >= cs.n * 0.06 && cs.goals <= cs.n * 0.2, +(cs.goals / cs.n * 100).toFixed(1));
-
-console.log('a throw-in straight into the goal');
-const tg = sim.run(`(() => {
-  const out = [];
-  for (const deflect of [false, true]) {
-    Math.random = (() => { let s = 99; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; })();
-    const m = Match.create({ autopilot: true, mode: 'pro', format: '2v2', minutes: 2 });
-    m.phase = 'play';
-    const b = m.ball, W = CFG.FIELD_W;
-    // blue knocks it out over the top touchline near red's goal end: red's throw
-    const gxRed = attackGoalX('red');
-    const blue = m.players.find((p) => p.team === 'blue' && !p.isKeeper);
-    if (b.owner) loseBall(m, b.owner, 0);
-    b.x = gxRed === W ? W - 260 : 260; b.y = -20; b.z = 0; b.vx = 0; b.vy = 0; b.lastTouchTeam = 'blue'; b.lastKicker = blue;
-    Rules.start(m);
-    const R = m.restart, kind = R && R.kind, team = R && R.team;
-    Rules.take(m, 'pass', 0, 1, 0);
-    // ...and it flies straight in, untouched (or off a blue defender)
-    const thrower = b.lastKicker;
-    for (const p of m.players) { p.x = W / 2; p.y = 300 + Math.random() * 200; }
-    b.owner = null; b.x = gxRed === W ? W - 30 : 30; b.y = CFG.FIELD_H / 2; b.z = 10; b.vz = 0; b.vx = (gxRed === W ? 1 : -1) * 900; b.vy = 0;
-    if (deflect) b.lastTouchTeam = 'blue';
-    const score0 = m.score.red + m.score.blue;
-    for (let i = 0; i < 40 && m.phase === 'play'; i++) Match.step(m, CFG.STEP);
-    out.push({ kind, team, thrower: thrower && thrower.team, phase: m.phase, next: m.restart && m.restart.kind, nextTeam: m.restart && m.restart.team, goals: m.score.red + m.score.blue - score0 });
-  }
-  return out;
-})()`);
-check('the ball out off blue is a throw-in to red', tg[0].kind === 'throw' && tg[0].team === 'red' && tg[0].thrower === 'red', tg[0]);
-check('thrown straight in, it is no goal: a goal kick to the other side', tg[0].goals === 0 && tg[0].phase === 'restart' && tg[0].next === 'goalkick' && tg[0].nextTeam === 'blue', tg[0]);
-check('off a defender on the way, it counts', tg[1].goals === 1, tg[1]);
-
-console.log('and back to the normal pitch');
-sim.run("Pitch.use('normal')");
-const back = sim.run('({ W: CFG.FIELD_W, H: CFG.FIELD_H, walls: WALLS.length, gy1: GOAL_Y1 })');
-check('everything is as it was', JSON.stringify(back) === JSON.stringify(normal), { back, normal });
-const q = sim.run(`(() => { const m = Match.create({ autopilot: true, mode: 'quick', format: '4v4', minutes: 1 }); let n = 0, outs = 0; while (m.phase !== 'over' && n < 200000) { Match.step(m, CFG.STEP); n++; if (m.phase === 'restart') outs++; if (m.phase === 'timeup' && m.phaseT > 1.6) break; } return { rules: m.rules, restarts: outs }; })()`);
-check('an ordinary match has no outs at all', q.rules === false && q.restarts === 0, q);
-
-console.log(failures ? `\n${failures} FAILED` : '\nall good');
-process.exit(failures ? 1 : 0);
+console.log(fail ? `\nrulesscan: ${fail} FAILED` : '\nrulesscan: all good');
+process.exit(fail ? 1 : 0);

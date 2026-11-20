@@ -36,7 +36,7 @@ const sandbox = {
   tl: (s, a) => (a ? String(s).replace(/\{(\w+)\}/g, (m, k) => (a[k] != null ? String(a[k]) : m)) : s), tlN: (n, one, many, a) => (n === 1 ? one : many).replace(/\{(\w+)\}/g, (m, k) => ((a || [n])[k] != null ? String((a || [n])[k]) : m)), I18N: { lang: 'en', server: (s) => String(s || ''), parts: (s) => s, t: (s) => s, upper: (s) => String(s).toUpperCase() },
   console, Math, Date, JSON, Object, Array, Number, String, Boolean, Map, Set, Proxy, Symbol, Error, isFinite, parseInt, parseFloat, performance,
   setTimeout, clearTimeout,
-  Sound: noopProxy({ pass: rec('pass'), kick: rec('kick'), skill: rec('skill'), slide: rec('slide') }), FX: noopProxy({ banner: null }), UI: noopProxy(), Render: noopProxy(), Pens: noopProxy(),
+  Sound: noopProxy({ pass: rec('pass'), kick: rec('kick'), shoot: rec('shoot'), skill: rec('skill'), slide: rec('slide') }), FX: noopProxy({ banner: null }), UI: noopProxy(), Render: noopProxy(), Pens: noopProxy(),
   Game: { match: null, state: 'home', acc: 0, headless: false, goHome() {}, difficulty() { return null; } },
   Net, $: el, vibrate: () => {}, document: { getElementById: el, documentElement: { style: { setProperty() {} } } }, localStorage: { getItem: () => null, setItem() {} },
 };
@@ -153,7 +153,7 @@ const p90 = (a) => { if (!a.length) return null; const s = a.slice().sort((x, y)
     else { Input._passPressed = true; Input._passQueued = true; }
     const releaseAt = performance.now();
     while (performance.now() - releaseAt < 700) { await frame(); Input.stick.x = 1; Input.stick.y = 0; }
-    const name = shot ? 'kick' : 'pass';
+    const name = shot ? 'shoot' : 'pass';   // (a jump shot's sound is Sound.shoot)
     const heard = soundLog.filter(([n, t]) => n === name && t >= releaseAt - 40);
     (shot ? st.kickSoundMs : st.passSoundMs).push(heard.length ? Math.max(0, heard[0][1] - releaseAt) : null);
     (shot ? st.kickSounds : st.passSounds).push(heard.length);

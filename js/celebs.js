@@ -50,7 +50,7 @@ const CELEBRATIONS = [
   { id: 'ballerina', name: tl('Ballerina'), price: 44000 },
   { id: 'cartwheel', name: tl('Flip Out'), price: 46000 },
   { id: 'matrix', name: tl('Bullet Dodge'), price: 50000 },
-  { id: 'scissor', name: tl('Bicycle Kick'), price: 55000 },
+  { id: 'scissor', name: tl('Ninja Kick'), price: 55000 },
   { id: 'trophy', name: tl('Trophy Lift'), price: 60000 },
   { id: 'money', name: tl('Make It Rain'), price: 75000 },
   { id: 'lightning', name: tl('Lightning Bolt'), price: 80000 },
@@ -60,7 +60,7 @@ const CELEBRATIONS = [
   { id: 'micdrop', name: tl('Mic Drop'), price: 100000 },
   { id: 'statue', name: tl('Living Statue'), price: 105000 },
   { id: 'drummer', name: tl('Victory Drums'), price: 110000 },
-  { id: 'trumpet', name: tl('Goal Trumpet'), price: 115000 },
+  { id: 'trumpet', name: tl('Victory Trumpet'), price: 115000 },
   { id: 'magician', name: tl('Magic Trick'), price: 120000 },
   { id: 'freeze', name: tl('Freeze Frame'), price: 125000 },
   { id: 'earthquake', name: tl('Earthquake'), price: 130000 },
@@ -69,7 +69,7 @@ const CELEBRATIONS = [
   { id: 'royalwave', name: tl('Royal Wave'), price: 145000 },
   { id: 'meditate', name: tl('Zen Master'), price: 150000 },
   { id: 'victorylap', name: tl('Victory Lap'), price: 155000 },
-  { id: 'snowangel', name: tl('Grass Angel'), price: 160000 },
+  { id: 'snowangel', name: tl('Floor Angel'), price: 160000 },
   { id: 'handstand', name: tl('Handstand'), price: 170000 },
   { id: 'pogo', name: tl('Pogo Bounce'), price: 180000 },
   { id: 'boxing', name: tl('Champion Boxer'), price: 190000 },
@@ -93,7 +93,7 @@ const CELEBRATIONS = [
   { id: 'mexicanwave', name: tl('The Wave'), rarity: 'rare', price: 14000 },
   { id: 'trampoline', name: tl('Trampoline'), rarity: 'rare', price: 16000 },
   { id: 'catwalk', name: tl('Catwalk'), rarity: 'rare', price: 18000 },
-  { id: 'keepyup', name: tl('Keepy-Up'), rarity: 'rare', price: 20000 },
+  { id: 'keepyup', name: tl('Ball Tricks'), rarity: 'rare', price: 20000 },
   { id: 'thunderclap', name: tl('Thunder Clap'), rarity: 'epic', price: 30000 },
   { id: 'icestorm', name: tl('Ice Storm'), rarity: 'epic', price: 34000 },
   { id: 'spinkick', name: tl('Spin Kick'), rarity: 'epic', price: 38000 },
@@ -780,39 +780,28 @@ const CELE_POSES = {
 
 // The ult shot: how the strike looks, 0..1 through it. Same shape as a celebration pose.
 const ULT_POSES = {
-  // leaning back and lashing through the ball with the laces
-  volley: (u) => {
-    const swing = u < 0.3 ? -0.8 + u / 0.3 * 0.4 : Math.min(1, (u - 0.3) / 0.2);
-    return { jump: 8 + Math.max(0, Math.sin(u * Math.PI)) * 10, lean: -0.45 + swing * 0.25, upper: -0.2,
-      feet: [[-8 - swing * 4, -6 - swing * 2], [lerp(-4, 30, (swing + 0.8) / 1.8), lerp(-2, -40, (swing + 0.8) / 1.8)]],
-      hands: [[-26, -52 - swing * 6], [22 + swing * 6, -58]] };
+  // the ball swung right round in a full circle at arm's length, and down through the rim
+  windmill: (u) => {
+    const a = -Math.PI / 2 + Math.min(1, u / 0.62) * Math.PI * 2;
+    return { jump: 0, lean: -0.1, upper: -0.12,
+      feet: [[-6, -10], [8, -16]],
+      hands: [[-20, -62], [Math.cos(a) * 24, -40 + Math.sin(a) * 26]] };
   },
-  // upside down, both legs cycling over the top
-  bicycle: (u) => {
-    const s = Math.sin(u * Math.PI * 2.2);
-    return { jump: Math.sin(Math.min(1, u * 1.15) * Math.PI) * 46 + 4, rot: -Math.sin(Math.min(1, u * 1.2) * Math.PI) * 2.3,
-      feet: [[-4 - s * 10, -12 - s * 8], [8 + s * 12, -18 + s * 8]],
-      hands: [[-26, -38], [24, -34]] };
+  // both hands back behind the head, then hammered down
+  tomahawk: (u) => {
+    const back = u < 0.5 ? Math.min(1, u / 0.35) : 1 - Math.min(1, (u - 0.5) / 0.15);
+    return { jump: 0, lean: -0.3 * back + 0.25 * (1 - back) * (u > 0.5 ? 1 : 0),
+      feet: [[-6, -12], [7, -14]],
+      hands: [[-8 - back * 4, -60 - back * 14], [10 + back * 2, -62 - back * 14]] };
   },
-  // a full backflip, striking it on the way round
-  backflip: (u) => ({ jump: Math.sin(Math.min(1, u * 1.1) * Math.PI) * 52 + 4, rot: -u * Math.PI * 2,
-    feet: [[-2, -14], [10, -20]], hands: [[-6, -28], [12, -26]] }),
-  // Diving forward onto the hands, the back arched, and the heel whipping up and over to strike it
-  // from behind the head.
-  scorpion: (u) => {
-    const dive = Math.min(1, u / 0.3), tip = dive * dive * (3 - 2 * dive);
-    const whip = u < 0.22 ? 0 : Math.sin(Math.min(1, (u - 0.22) / 0.62) * Math.PI);
-    const settle = u > 0.84 ? (u - 0.84) / 0.16 : 0;
-    return { jump: 4 + Math.sin(Math.min(1, u * 1.1) * Math.PI) * 16, rot: 1.35 * tip * (1 - settle * 0.7), upper: -0.6 * tip * (1 - settle),
-      feet: [[-4 - whip * 3, -4], [lerp(-3, -20, whip), lerp(-5, -22, whip)]],
-      hands: [[14, -66], [21, -60]] };
-  },
-  // both feet off the deck, legs scissoring through it (kept for older saved replays)
-  scissors: (u) => {
-    const s = Math.sin(u * Math.PI * 3);
-    return { jump: Math.sin(Math.min(1, u * 1.2) * Math.PI) * 34 + 3, rot: -0.55, lean: -0.2,
-      feet: [[-6 - s * 12, -10 - s * 6], [6 + s * 14, -16 + s * 6]],
-      hands: [[-28, -46], [26, -44]] };
+  // leaning away, legs together, let go high over a defender
+  fadeaway: (u) => ({ jump: Math.sin(Math.min(1, u * 1.15) * Math.PI) * 30, lean: -0.42, upper: -0.12,
+    feet: [[-2, -6], [4, -8]], hands: [[4, -70], [14, -74]] }),
+  // side-on, one arm sweeping up and over the top
+  skyhook: (u) => {
+    const a = Math.PI * 0.95 - Math.min(1, u / 0.55) * Math.PI * 0.7;
+    return { jump: Math.sin(Math.min(1, u * 1.1) * Math.PI) * 26, rot: 0.15, lean: -0.08,
+      feet: [[-4, -6], [10, -18]], hands: [[-18, -40], [Math.cos(a) * 26, -46 - Math.sin(a) * 30]] };
   },
 };
 

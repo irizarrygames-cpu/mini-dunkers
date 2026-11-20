@@ -257,15 +257,15 @@ async function endRoom(id) {
     const pa = partyOf.get('ann');
     await party('ann', 'bb2');
     const n = socks.ann.got.length;
-    say('ann', { t: 'queue', format: '4v4' });
+    say('ann', { t: 'queue', format: '3v3' });
     const e = await waitFor(socks.ann, 'error', n, 300);
     check('a member playing against bots: the leader is told, nothing starts', e && /BB2 is playing/.test(e.msg) && !queued().length, e);
-    connect('fil'); befriend('ann', 'fil'); await party('ann', 'fil');
+    connect('fil'); befriend('ann', 'fil');
     connect('ful'); befriend('ann', 'ful');
     say('ann', { t: 'party.invite', name: 'ful' });
-    check('four in the party (ANN, CAT, BB2, FIL): full, no more invites', /full/.test(socks.ann.last('social').msg || ''), socks.ann.last('social'));
-    say('fil', { t: 'party.leave' });
+    check('three in the party (ANN, CAT, BB2): full, no more invites', /full/.test(socks.ann.last('social').msg || ''), socks.ann.last('social'));
     say('bb2', { t: 'busy', on: false });
+    say('bb2', { t: 'party.leave' });   // (room for the invites below; back in after)
     // an invite that runs out
     connect('late'); befriend('ann', 'late');
     const nl = socks.late.got.length;
@@ -279,6 +279,7 @@ async function endRoom(id) {
     const inv2 = await waitFor(socks.late, 'party.invite', nl + 1, 500);
     say('late', { t: 'party.decline', id: inv2.id });
     check('declined: the leader hears about it', /can't play right now/.test((socks.ann.last('party.info') || {}).msg || ''));
+    await party('ann', 'bb2');
     const party4 = partyOf.get('ann');
     check('in the party now: A, C, B2', party4 && ['ann', 'cat', 'bb2'].every((m) => party4.members.includes(m)), party4 && party4.members);
     say('ann', { t: 'party.leave' });

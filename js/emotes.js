@@ -77,62 +77,62 @@ const EMOTE_SPECS = [
   ['gasp', tl('Gasp'), 'common', 'ref', 'shock', '', '', 'jump', 'sad'],
   ['sneaky', tl('Sneaky'), 'common', 'keeper', 'sneaky', '', '', 'sway', 'tease'],
   // ---- rare
-  ['yellowcard', tl('Yellow Card'), 'rare', 'ref', 'angry', 'yellowcard', '', 'pulse', 'tease'],
-  ['fulltime', tl('Full Time'), 'rare', 'ref', 'blank', 'whistle', 'rings', 'shake', 'gg'],
-  ['kickoff', tl('Kick Off'), 'rare', 'ref', 'happy', 'whistle', 'rings', 'bounce', 'hi'],
-  ['keepyuppy', tl('Keepy-Uppy'), 'rare', 'kid', 'happy', 'juggle', '', 'none', 'cool'],
-  ['header', tl('Header'), 'rare', 'kid', 'determined', 'header', '', 'none', 'joy'],
+  ['yellowcard', tl('Technical!'), 'rare', 'ref', 'angry', 'whistle', '', 'pulse', 'tease'],
+  ['fulltime', tl('Final Buzzer'), 'rare', 'ref', 'blank', 'whistle', 'rings', 'shake', 'gg'],
+  ['kickoff', tl('Tip-Off'), 'rare', 'ref', 'happy', 'whistle', 'rings', 'bounce', 'hi'],
+  ['keepyuppy', tl('Dribble Time'), 'rare', 'kid', 'happy', 'juggle', '', 'none', 'cool'],
+  ['header', tl('Head Bounce'), 'rare', 'kid', 'determined', 'header', '', 'none', 'joy'],
   ['popcorn', tl('Popcorn'), 'rare', 'fan', 'happy', 'popcorn', '', 'bounce', 'tease'],
   ['scarfup', tl('Scarf Up'), 'rare', 'fan', 'shout', 'scarf', '', 'sway', 'joy'],
   ['drumbeat', tl('Drum Beat'), 'rare', 'fan', 'grin', 'drum', 'notes', 'bounce', 'joy'],
   ['fanhorn', tl('Fan Horn'), 'rare', 'fan', 'blow', 'horn', 'rings', 'shake', 'joy'],
   ['medal', tl('Medal'), 'rare', 'kid', 'proud', 'medal', 'sparkle', 'bounce', 'joy'],
   ['safehands', tl('Safe Hands'), 'rare', 'keeper', 'cool', 'gloves', '', 'pulse', 'cool'],
-  ['timewasting', tl('Time Wasting'), 'rare', 'keeper', 'smug', 'stopwatch', '', 'tilt', 'tease'],
+  ['timewasting', tl('Stalling'), 'rare', 'keeper', 'smug', 'stopwatch', '', 'tilt', 'tease'],
   ['waterbreak', tl('Water Break'), 'rare', 'kid', 'tired', 'bottle', 'sweat', 'sway', 'cool'],
   ['halftime', tl('Half-Time'), 'rare', 'coach', 'orange', '', '', 'bounce', 'cool'],
   ['ouch', tl('Ouch'), 'rare', 'kid', 'cry', 'bandage', '', 'wobble', 'sad'],
   ['conehead', tl('Cone Head'), 'rare', 'coach', 'blank', 'cone', '', 'sway', 'tease'],
   ['tactics', tl('Tactics'), 'rare', 'coach', 'think', 'board', '', 'none', 'cool'],
   ['shoutit', tl('Shout It'), 'rare', 'coach', 'shout', 'megaphone', 'rings', 'shake', 'joy'],
-  ['cornerflag', tl('Corner Flag'), 'rare', 'kid', 'happy', 'flag', '', 'sway', 'joy'],
+  ['cornerflag', tl('Flag Wave'), 'rare', 'kid', 'happy', 'flag', '', 'sway', 'joy'],
   ['captain', tl('Captain'), 'rare', 'kid', 'determined', 'armband', 'sparkle', 'pulse', 'cool'],
-  ['newboots', tl('New Boots'), 'rare', 'kid', 'love', 'boot', 'sparkle', 'bounce', 'cool'],
+  ['newboots', tl('New Kicks'), 'rare', 'kid', 'love', 'boot', 'sparkle', 'bounce', 'cool'],
   ['rainyday', tl('Rainy Day'), 'rare', 'keeper', 'sad', 'cloud', 'rain', 'none', 'sad'],
   ['sunnyday', tl('Sunny Day'), 'rare', 'footy', 'cool', 'sun', '', 'float', 'cool'],
-  ['snowmatch', tl('Snow Match'), 'rare', 'footy', 'cold', '', 'snow', 'shake', 'sad'],
+  ['snowmatch', tl('Snow Game'), 'rare', 'footy', 'cold', '', 'snow', 'shake', 'sad'],
   ['singalong', tl('Sing Along'), 'rare', 'fan', 'sing', '', 'notes', 'sway', 'joy'],
   ['bubblegum', tl('Bubblegum'), 'rare', 'kid', 'blank', 'gum', '', 'none', 'tease'],
   ['payday', tl('Payday'), 'rare', 'coach', 'money', '', 'coins', 'bounce', 'joy'],
   ['tissue', tl('Need a Tissue'), 'rare', 'footy', 'cry', 'tissue', '', 'wobble', 'sad'],
-  ['nutmeg', tl('Nutmeg!'), 'rare', 'kid', 'laugh', 'nutmeg', '', 'bounce', 'tease'],
-  ['offside', tl('Offside!'), 'rare', 'ref', 'shout', 'flagup', '', 'shake', 'tease'],
-  ['handball', tl('Handball!'), 'rare', 'ref', 'shock', 'handup', 'bang', 'jump', 'tease'],
-  ['dive', tl('Dive!'), 'rare', 'kid', 'dizzy', '', 'stars', 'roll', 'tease'],
-  ['varcheck', tl('VAR Check'), 'rare', 'ref', 'think', 'var', '', 'tilt', 'tease'],
+  ['nutmeg', tl('Through the Legs!'), 'rare', 'kid', 'laugh', 'nutmeg', '', 'bounce', 'tease'],
+  ['offside', tl('Out of Bounds!'), 'rare', 'ref', 'shout', 'flagup', '', 'shake', 'tease'],
+  ['handball', tl('Travel!'), 'rare', 'ref', 'shock', 'handup', 'bang', 'jump', 'tease'],
+  ['dive', tl('Flop!'), 'rare', 'kid', 'dizzy', '', 'stars', 'roll', 'tease'],
+  ['varcheck', tl('Replay Check'), 'rare', 'ref', 'think', 'var', '', 'tilt', 'tease'],
   ['selfie', tl('Selfie'), 'rare', 'kid', 'wink', 'phone', 'flash', 'none', 'cool'],
   ['smoked', tl('Smoked'), 'rare', 'kid', 'smug', '', 'smoke', 'float', 'tease'],
   ['toofast', tl('Too Fast'), 'rare', 'footy', 'determined', '', 'speed', 'sway', 'cool'],
   ['zapped', tl('Zapped'), 'rare', 'keeper', 'shock', '', 'bolt', 'shake', 'sad'],
-  ['backofnet', tl('Back of the Net'), 'rare', 'footy', 'happy', 'net', '', 'bounce', 'joy'],
-  ['offthepost', tl('Off the Post'), 'rare', 'footy', 'dizzy', 'post', 'stars', 'none', 'sad'],
+  ['backofnet', tl('Nothing but Net'), 'rare', 'footy', 'happy', 'net', '', 'bounce', 'joy'],
+  ['offthepost', tl('Off the Rim'), 'rare', 'footy', 'dizzy', 'post', 'stars', 'none', 'sad'],
   ['chefskiss', tl("Chef's Kiss"), 'rare', 'coach', 'kiss', 'chef', 'sparkle', 'pulse', 'cool'],
   // ---- epic
-  ['redcard', tl('Red Card'), 'epic', 'ref', 'rage', 'redcard', 'bang', 'slam', 'tease'],
-  ['golazo', tl('Golazo'), 'epic', 'footy', 'star', '', 'confetti', 'jump', 'joy'],
-  ['hattrick', tl('Hat-Trick'), 'epic', 'kid', 'proud', 'hattrick', 'sparkle', 'none', 'joy'],
-  ['topbins', tl('Top Bins'), 'epic', 'footy', 'cool', 'topcorner', '', 'none', 'joy'],
-  ['rainbowflick', tl('Rainbow Flick'), 'epic', 'kid', 'wink', 'rainbowball', '', 'none', 'cool'],
-  ['chipshot', tl('Chip Shot'), 'epic', 'kid', 'smug', 'chip', '', 'none', 'tease'],
-  ['parkthebus', tl('Park the Bus'), 'epic', 'coach', 'smug', 'bus', '', 'none', 'tease'],
-  ['tikitaka', tl('Tiki-Taka'), 'epic', 'footy', 'happy', 'passes', '', 'none', 'cool'],
+  ['redcard', tl('Ejected!'), 'epic', 'ref', 'rage', 'whistle', 'bang', 'slam', 'tease'],
+  ['golazo', tl('Swish!'), 'epic', 'footy', 'star', '', 'confetti', 'jump', 'joy'],
+  ['hattrick', tl('Three in a Row'), 'epic', 'kid', 'proud', 'hattrick', 'sparkle', 'none', 'joy'],
+  ['topbins', tl('Splash!'), 'epic', 'footy', 'cool', 'topcorner', '', 'none', 'joy'],
+  ['rainbowflick', tl('Rainbow Shot'), 'epic', 'kid', 'wink', 'rainbowball', '', 'none', 'cool'],
+  ['chipshot', tl('Floater'), 'epic', 'kid', 'smug', 'chip', '', 'none', 'tease'],
+  ['parkthebus', tl('Lockdown'), 'epic', 'coach', 'smug', 'bus', '', 'none', 'tease'],
+  ['tikitaka', tl('Ball Movement'), 'epic', 'footy', 'happy', 'passes', '', 'none', 'cool'],
   ['onfire', tl('On Fire'), 'epic', 'kid', 'determined', '', 'fire', 'shake', 'joy'],
   ['icecold', tl('Ice Cold'), 'epic', 'keeper', 'cool', '', 'frost', 'none', 'cool'],
   ['clutch', tl('Clutch'), 'epic', 'coach', 'determined', 'stopwatch', 'bolt', 'pulse', 'joy'],
-  ['penalty', tl('Penalty!'), 'epic', 'ref', 'shout', 'whistle', 'bang', 'jump', 'tease'],
-  ['whatasave', tl('What a Save'), 'epic', 'keeper', 'star', 'catch', 'rings', 'slam', 'joy'],
-  ['woodwork', tl('Woodwork'), 'epic', 'footy', 'rage', 'post', 'bolt', 'none', 'sad'],
-  ['addedtime', tl('Added Time'), 'epic', 'ref', 'blank', 'plusboard', '', 'pulse', 'tease'],
+  ['penalty', tl('Free Throw!'), 'epic', 'ref', 'shout', 'whistle', 'bang', 'jump', 'tease'],
+  ['whatasave', tl('What a Block'), 'epic', 'keeper', 'star', 'catch', 'rings', 'slam', 'joy'],
+  ['woodwork', tl('Bricked It'), 'epic', 'footy', 'rage', 'post', 'bolt', 'none', 'sad'],
+  ['addedtime', tl('Overtime'), 'epic', 'ref', 'blank', 'plusboard', '', 'pulse', 'tease'],
   ['subbedoff', tl('Subbed Off'), 'epic', 'coach', 'sad', 'subboard', '', 'sway', 'sad'],
   ['discoball', tl('Disco Ball'), 'epic', 'footy', 'cool', '', 'disco', 'spin', 'joy'],
   ['bigboss', tl('Big Boss'), 'epic', 'kid', 'smug', 'crown', 'sparkle', 'float', 'cool'],
@@ -149,26 +149,26 @@ const EMOTE_SPECS = [
   ['tornado', tl('Tornado'), 'epic', 'footy', 'dizzy', '', 'wind', 'spin', 'tease'],
   ['superstar', tl('Superstar'), 'epic', 'fan', 'star', '', 'spotlight', 'pulse', 'joy'],
   // ---- legendary
-  ['goldenboot', tl('Golden Boot'), 'legendary', 'kid', 'proud', 'goldboot', 'sparkle', 'float', 'joy'],
+  ['goldenboot', tl('Golden Sneaker'), 'legendary', 'kid', 'proud', 'goldboot', 'sparkle', 'float', 'joy'],
   ['champions', tl('Champions'), 'legendary', 'coach', 'happy', 'trophy', 'confetti', 'bounce', 'joy'],
-  ['bicyclekick', tl('Bicycle Kick'), 'legendary', 'kid', 'determined', 'bicycle', 'speed', 'flip', 'joy'],
+  ['bicyclekick', tl('Backflip'), 'legendary', 'kid', 'determined', 'bicycle', 'speed', 'flip', 'joy'],
   ['rocketshot', tl('Rocket Shot'), 'legendary', 'footy', 'cool', 'rocket', '', 'shake', 'joy'],
   ['thegoat', tl('The GOAT'), 'legendary', 'goat', 'smug', '', 'sparkle', 'float', 'cool'],
   ['goatlaugh', tl('GOAT Laugh'), 'legendary', 'goat', 'lol', '', '', 'shake', 'tease'],
-  ['thunderkeeper', tl('Thunder Keeper'), 'legendary', 'keeper', 'rage', 'gloves', 'bolt', 'shake', 'cool'],
-  ['firestriker', tl('Fire Striker'), 'legendary', 'kid', 'rage', '', 'bigfire', 'shake', 'joy'],
+  ['thunderkeeper', tl('Thunder Blocker'), 'legendary', 'keeper', 'rage', 'gloves', 'bolt', 'shake', 'cool'],
+  ['firestriker', tl('Fire Shooter'), 'legendary', 'kid', 'rage', '', 'bigfire', 'shake', 'joy'],
   ['frozenout', tl('Frozen Out'), 'legendary', 'keeper', 'shock', 'iceblock', '', 'none', 'sad'],
-  ['kingofpitch', tl('King of the Pitch'), 'legendary', 'kid', 'smug', 'crown', 'confetti', 'float', 'cool'],
-  ['worldie', tl('Worldie'), 'legendary', 'footy', 'star', '', 'fireworks', 'jump', 'joy'],
+  ['kingofpitch', tl('King of the Court'), 'legendary', 'kid', 'smug', 'crown', 'confetti', 'float', 'cool'],
+  ['worldie', tl('Heat Check'), 'legendary', 'footy', 'star', '', 'fireworks', 'jump', 'joy'],
   ['lasereyes', tl('Laser Eyes'), 'legendary', 'kid', 'laser', '', '', 'none', 'cool'],
   ['moneyrain', tl('Money Rain'), 'legendary', 'coach', 'money', 'chain', 'coins', 'bounce', 'joy'],
   ['supersub', tl('Super Sub'), 'legendary', 'kid', 'determined', 'cape', 'speed', 'float', 'joy'],
-  ['wizardfeet', tl('Wizard Feet'), 'legendary', 'coach', 'wink', 'wizard', 'sparkle', 'float', 'cool'],
-  ['lastminute', tl('Last Minute'), 'legendary', 'ref', 'shock', 'stopwatch', 'explode', 'shake', 'joy'],
+  ['wizardfeet', tl('Wizard Handles'), 'legendary', 'coach', 'wink', 'wizard', 'sparkle', 'float', 'cool'],
+  ['lastminute', tl('Buzzer Beater'), 'legendary', 'ref', 'shock', 'stopwatch', 'explode', 'shake', 'joy'],
   ['moonshot', tl('Moon Shot'), 'legendary', 'footy', 'cool', 'moon', 'stars', 'float', 'joy'],
   ['vip', tl('VIP'), 'legendary', 'fan', 'cool', 'chain', 'sparkle', 'sway', 'cool'],
   ['iceking', tl('Ice King'), 'legendary', 'footy', 'cool', 'crown', 'frost', 'float', 'cool'],
-  ['goldengloves', tl('Golden Gloves'), 'legendary', 'keeper', 'proud', 'goldgloves', 'sparkle', 'pulse', 'cool'],
+  ['goldengloves', tl('Golden Hands'), 'legendary', 'keeper', 'proud', 'goldgloves', 'sparkle', 'pulse', 'cool'],
   // ---- mythic
   ['goatmode', tl('GOAT Mode'), 'mythic', 'goat', 'cool', 'crown', 'fire', 'float', 'joy'],
   ['galaxyball', tl('Galaxy Ball'), 'mythic', 'footy', 'star', 'planet', 'cosmos', 'float', 'cool'],
@@ -179,7 +179,7 @@ const EMOTE_SPECS = [
   ['dragonshot', tl('Dragon Shot'), 'mythic', 'footy', 'rage', 'firebreath', 'bigfire', 'shake', 'joy'],
   ['timefreeze', tl('Time Freeze'), 'mythic', 'ref', 'blank', 'clock', 'frost', 'none', 'cool'],
   ['livinglegend', tl('Living Legend'), 'mythic', 'coach', 'proud', 'crown', 'confetti', 'float', 'cool'],
-  ['cosmickeeper', tl('Cosmic Keeper'), 'mythic', 'keeper', 'star', 'gloves', 'cosmos', 'float', 'cool'],
+  ['cosmickeeper', tl('Cosmic Blocker'), 'mythic', 'keeper', 'star', 'gloves', 'cosmos', 'float', 'cool'],
   // ---- build 121: three for the winter and the autumn
   ['snowday', tl('Snow Day'), 'rare', 'kid', 'happy', 'scarf', 'snow', 'bounce', 'joy'],
   ['autumnbreeze', tl('Autumn Breeze'), 'epic', 'coach', 'calm', '', 'wind', 'sway', 'cool'],
@@ -201,8 +201,8 @@ const EMOTE_STARTERS = EMOTES.filter((e) => e.starter).map((e) => e.id);
    Everything is drawn in a 100 x 100 box around (0, 0); the head sits at (0, 4) with radius 30. */
 const EM_INK = typeof OUTLINE !== 'undefined' ? OUTLINE : '#161a33';
 const EM_TAU = Math.PI * 2;
-const EM_SKIN = { kid: '#f2c49b', keeper: '#c98b5e', ref: '#f6cfa6', coach: '#e9b489', fan: '#a8693f', goat: '#eef0f5', footy: '#ffffff', golden: '#ffd23f' };
-const EM_HANDS = { kid: '#f2c49b', keeper: '#7ee05a', ref: '#f6cfa6', coach: '#e9b489', fan: '#a8693f', goat: '#eef0f5', footy: '#ffffff', golden: '#ffd23f' };
+const EM_SKIN = { kid: '#f2c49b', keeper: '#c98b5e', ref: '#f6cfa6', coach: '#e9b489', fan: '#a8693f', goat: '#eef0f5', footy: '#ff8a1f', golden: '#ffd23f' };
+const EM_HANDS = { kid: '#f2c49b', keeper: '#c98b5e', ref: '#f6cfa6', coach: '#e9b489', fan: '#a8693f', goat: '#eef0f5', footy: '#ff8a1f', golden: '#ffd23f' };
 const EM_GOLD = '#ffc21a', EM_GOLD2 = '#ffe14d', EM_RED = '#ff3a3f', EM_BLUE = '#2f7bff', EM_GREEN = '#3fcf4a', EM_PINK = '#ff5fa8', EM_PURPLE = '#a35cff', EM_ORANGE = '#ff8a1f';
 const EM_CONFETTI = [EM_RED, EM_GOLD2, EM_BLUE, EM_GREEN, EM_PINK, EM_PURPLE];
 
@@ -272,14 +272,16 @@ function emCloud(g, x, y, s, col = '#ffffff', lw = 3) {
   for (const [bx, by, r] of bumps) { g.beginPath(); g.arc(x + bx * s, y + by * s, r * s, 0, EM_TAU); g.stroke(); }
   for (const [bx, by, r] of bumps) { g.beginPath(); g.arc(x + bx * s, y + by * s, r * s, 0, EM_TAU); g.fill(); }
 }
-// a little football
-function emBall(g, x, y, r, rot = 0, col = '#ffffff', patch = '#2b2f4a') {
+// a little basketball: orange, its seams turning as it spins (col / patch: a gold one, a cosmic one)
+function emBall(g, x, y, r, rot = 0, col = '#ff8a1f', patch = '#2b2f4a') {
+  if (col === '#ffffff') col = '#ff8a1f';
   emCirc(g, x, y, r, col, Math.max(1.6, r * 0.24));
   g.save(); g.beginPath(); g.arc(x, y, r - 0.6, 0, EM_TAU); g.clip();
-  g.fillStyle = patch;
-  const pent = (cx, cy, pr, a0) => { g.beginPath(); for (let i = 0; i < 5; i++) { const a = a0 + (i * EM_TAU) / 5; g.lineTo(cx + Math.cos(a) * pr, cy + Math.sin(a) * pr); } g.closePath(); g.fill(); };
-  pent(x, y, r * 0.36, rot - Math.PI / 2);
-  for (let i = 0; i < 5; i++) { const a = rot - Math.PI / 2 + (i * EM_TAU) / 5; pent(x + Math.cos(a) * r * 0.98, y + Math.sin(a) * r * 0.98, r * 0.32, a + Math.PI / 2); }
+  g.translate(x, y); g.rotate(rot);
+  g.strokeStyle = patch; g.lineWidth = Math.max(1, r * 0.16); g.lineCap = 'round';
+  g.beginPath(); g.moveTo(-r, 0); g.lineTo(r, 0); g.moveTo(0, -r); g.lineTo(0, r); g.stroke();
+  g.beginPath(); g.arc(-r * 1.25, 0, r * 0.95, -0.95, 0.95); g.stroke();
+  g.beginPath(); g.arc(r * 1.25, 0, r * 0.95, Math.PI - 0.95, Math.PI + 0.95); g.stroke();
   g.restore();
   emLine(g, Math.max(1.6, r * 0.24)); g.beginPath(); g.arc(x, y, r, 0, EM_TAU); g.stroke();
 }
@@ -539,9 +541,12 @@ const Emotes = {
     } else emCirc(g, 0, 4, 30, skin);
     if (who === 'footy' || who === 'golden') {
       g.save(); g.beginPath(); g.arc(0, 4, 28.5, 0, EM_TAU); g.clip();
-      g.fillStyle = who === 'golden' ? '#d99a0a' : '#2b2f4a';
-      const pent = (cx, cy, r, a0) => { g.beginPath(); for (let i = 0; i < 5; i++) { const a = a0 + (i * EM_TAU) / 5; g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); } g.closePath(); g.fill(); };
-      pent(0, -24, 9, -Math.PI / 2); pent(-30, -2, 9, 0.3); pent(30, -2, 9, -0.3); pent(-19, 33, 9, 0.2); pent(19, 33, 9, -0.2);
+      // a basketball's seams round the face: across the top, down each side
+      g.strokeStyle = who === 'golden' ? '#d99a0a' : '#2b2f4a'; g.lineWidth = 3.2; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(-30, -14); g.quadraticCurveTo(0, -26, 30, -14); g.stroke();
+      g.beginPath(); g.arc(-48, 4, 30, -0.7, 0.7); g.stroke();
+      g.beginPath(); g.arc(48, 4, 30, Math.PI - 0.7, Math.PI + 0.7); g.stroke();
+      g.beginPath(); g.moveTo(0, 30); g.lineTo(0, 34); g.stroke();
       g.restore();
       if (who === 'golden') { emSpark(g, -16, -12, 4 + Math.sin(t * 5) * 1.5, '#ffffff', 1.4); }
       emLine(g); g.beginPath(); g.arc(0, 4, 30, 0, EM_TAU); g.stroke();
@@ -549,8 +554,9 @@ const Emotes = {
     if (who === 'kid') {
       emPoly(g, [[-30, 0], [-29, -16], [-24, -34], [-15, -24], [-8, -42], [0, -27], [8, -43], [14, -27], [23, -36], [28, -18], [30, 0], [22, -11], [8, -15], [-8, -15], [-22, -11]], '#4a2e1c');
     } else if (who === 'keeper') {
-      g.beginPath(); g.arc(0, 3, 31, Math.PI * 1.2, Math.PI * 1.8); g.closePath(); emFS(g, EM_GREEN);
-      emBox(g, -30, -21, 60, 8, 4, '#2a9d4b');
+      // a baller: short hair and a headband
+      g.beginPath(); g.arc(0, 3, 31, Math.PI * 1.15, Math.PI * 1.85); g.closePath(); emFS(g, '#2b1d14');
+      emBox(g, -31, -18, 62, 8, 4, EM_RED);
     } else if (who === 'ref') {
       emEll(g, -26, -4, 5, 9, 0.3, '#1b1d33', 2.4); emEll(g, 26, -4, 5, 9, -0.3, '#1b1d33', 2.4);
       g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(-12, -17, 6, 3, -0.5, 0, EM_TAU); g.fill();

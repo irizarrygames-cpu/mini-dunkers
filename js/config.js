@@ -1,85 +1,91 @@
 // ===== Name & identity ==============================================
 // Temporary title. Change GAME_NAME to rename every visible title.
 // STORAGE_KEY stays fixed so saved progress survives a rename.
-const GAME_NAME = tl('Mini Strikers');
-const GAME_SLOGANS = [tl('SMALL PLAYERS'), tl('BIG MOMENTS!'), tl('PLAY TOGETHER!'), tl('GOAL!')];
-const STORAGE_KEY = 'arcade-soccer.v1';
+const GAME_NAME = tl('Mini Dunkers');
+const GAME_SLOGANS = [tl('SMALL PLAYERS'), tl('BIG MOMENTS!'), tl('PLAY TOGETHER!'), tl('DUNK!')];
+const STORAGE_KEY = 'mini-dunkers.v1';
 
 const CFG = {
-  // Field (world units). Blue defends the left goal, attacks right.
-  // Doubled on request (was 1200x700 with 190-wide goals). Speeds below went up ~25%
-  // so crossing the bigger pitch still feels arcade-fast.
-  FIELD_W: 2400,
-  FIELD_H: 1400,
-  SIDE_M: 40,        // side boards sit this far outside the touchlines
-  END_M: 34,         // end boards sit this far behind the goal lines
-  CHAMFER: 72,       // cut corners so the ball never dies in a corner
-  GOAL_W: 380,
-  GOAL_D: 84,
-  GOAL_H: 112,
-  BOX_D: 380, BOX_W: 860,
-  SMALL_D: 140, SMALL_W: 540,
-  CIRCLE_R: 190,
+  // The court (world units). Blue attacks the right-hand hoop, red the left. Real proportions,
+  // roughly: 28 m by 15 m, so a metre is about 64 units along and 67 across.
+  FIELD_W: 1800,
+  FIELD_H: 1000,
+  SIDE_M: 52,        // the fence round the court sits this far outside the sidelines
+  END_M: 74,         // and this far behind the baselines (room for the hoop's stand)
+  CHAMFER: 40,       // cut corners so the ball never dies in one
   TILT: 0.8,         // vertical squash: the "very slight tilt"
 
-  PLAYER_R: 15,
-  KEEPER_R: 17,
-  BALL_R: 9,
+  // ---- the hoops (one at each end, on the middle line)
+  HOOP_IN: 105,      // the middle of the rim, in from the baseline
+  RIM_R: 18,         // the rim's radius (the ball is 10: two balls across, as on a real hoop)
+  RIM_Z: 108,        // the rim's height (a player is about 70 tall: 3.05 m against 2 m)
+  BOARD_IN: 74,      // the backboard, in from the baseline
+  BOARD_W: 124,      // and how wide it is
+  BOARD_Z0: 92, BOARD_Z1: 172,   // its bottom and top edge
+  // ---- the lines
+  KEY_D: 372, KEY_W: 320,        // the paint: how far it comes out from the baseline, how wide
+  FT_R: 112,                     // the free-throw circle
+  THREE_R: 445,                  // the 3-point arc, from the middle of the rim
+  THREE_SIDE: 66,                // the corner 3: straight lines this far in from the sidelines (434 from the
+                                 // rim's line, inside the arc's 445, so they meet it 98 out from the rim)
+  CIRCLE_R: 112,                 // the centre circle
+  // ---- where a shot is which
+  DUNK_R: 150,       // close enough to the rim to dunk it
+  LAYUP_R: 240,      // close enough for a layup
 
-  SPEED: 315,
-  SPEED_WITH_BALL: 288,
-  KEEPER_SPEED: 310,
+  PLAYER_R: 15,
+  KEEPER_R: 15,      // (no keepers in basketball: kept so old code that sizes one still works)
+  BALL_R: 10,
+
+  SPEED: 330,
+  SPEED_WITH_BALL: 300,
+  KEEPER_SPEED: 330,
   ACCEL: 12,
   HUMAN_ACCEL: 22,
   HUMAN_DECEL: 28,
   STEP: 1 / 120,
   MATCH_MINUTES: 2,  // every match, offline and online (server/game.js MATCH_MINUTES says the same)
 
-  BALL_FRICTION: 0.78,
-  BALL_AIR_DRAG: 0.2,
-  GRAVITY: 1200,
-  BALL_BOUNCE: 0.42,
-  WALL_BOUNCE: 0.62,
-  CONTROL_MAX: 830,  // faster than this and outfield players deflect it
+  // ---- the ball
+  GRAVITY: 1300,
+  BALL_BOUNCE: 0.72,     // a basketball bounces: about three quarters back up
+  BALL_FRICTION: 1.1,    // rolling on the floor
+  BALL_AIR_DRAG: 0.08,
+  WALL_BOUNCE: 0.5,
+  DRIBBLE_H: 32,         // how high the dribble comes up
+  REACH: 64,             // how high a player standing can catch it (hands up)
+  JUMP_V: 420,           // a jump (about 68 up, 0.65 s in the air)
+  DUNK_V: 470,           // a dunk goes higher
+  CONTROL_MAX: 1400,     // (a basketball is caught, whatever the speed)
 
-  PASS_MIN: 440,
-  PASS_MAX: 810,
-  SHOT_WEAK: 900,
-  SHOT_STRONG: 1320,
-  SHOT_POWER: 1650,
-  // shot charge (halved from 0.3 / 0.8 / 1.4 / 1.6 so it fills twice as quickly)
-  CHARGE_MED: 0.15,
-  CHARGE_STRONG: 0.4,
-  CHARGE_FULL: 0.7,
-  CHARGE_AUTO: 0.8,
-  CHARGE_POW: 0.55,       // hold this long for the hardest non-power shot
-  // hold PASS to charge a harder through ball; a tap is the ordinary pass
-  PASS_CHARGE_FULL: 0.5,
-  PASS_CHARGE_TAP: 0.1,   // anything shorter than this is still a tap
+  // ---- passing
+  PASS_MIN: 700,
+  PASS_MAX: 1000,
+  PASS_CHARGE_FULL: 0.5,  // hold PASS for a lob over the top
+  PASS_CHARGE_TAP: 0.1,
+
+  // ---- shooting: hold SHOOT and let go at the top of the meter
+  METER_T: 0.62,          // how long the meter takes to fill
+  PERFECT_LO: 0.84,       // let go in here: a perfect release (green)
+  PERFECT_HI: 0.98,
+  GOOD_LO: 0.68,          // in here: a good one
+  CHARGE_AUTO: 0.9,       // held this long it goes by itself, late
+  CHARGE_MED: 0.2, CHARGE_STRONG: 0.45, CHARGE_FULL: 0.62, CHARGE_POW: 0.55,   // (the meter's sound)
 
   POWER_MAX: 100,
-  // ULT: only your goals, skills, assists and won tackles fill it
-  // (10 goals, 100 skills, 20 assists or ~34 tackles = full). Then one unstoppable acrobatic shot.
+  // ULT: ON FIRE. Only your own baskets, assists, steals, blocks and skill moves fill it; then the
+  // next shot you take, from anywhere, goes in with the ball on fire.
   ULT_MAX: 100,
-  ULT_GOAL: 10,
+  ULT_GOAL: 9,
   ULT_SKILL: 1,
   ULT_ASSIST: 5,
-  ULT_TACKLE: 3,
-  ULT_SHOT_SPEED: 1750,
+  ULT_TACKLE: 4,
   OVERTIME_SECONDS: 90,
-  // The goalmouth: how hard the keeper makes it to simply walk the ball in.
-  // range: he leaves his line for a carrier this close to goal · close: he commits inside this
-  // gap: seconds between attempts · chance/botChance: how often he goes for it
-  // speed: how fast he closes · windup: the crouch that gives you a window to skill past him
-  // grab: how much of the ball-winning chance he keeps when he gets there
-  SMOTHER: { range: 205, close: 150, gap: 0.08, chance: 0.95, botChance: 0.97, speed: 1.7, windup: 0.16, grab: 1.4,
-    // dodgeStop: a keeper at your feet is not a sliding tackle — skilling past him works, but not always
-    // loose: inside the six-yard box the ball sits further ahead of you, so it is never a stroll
-    dodgeStop: 0.6, loose: 1.45, retry: 0.3, fumble: 0.25 },
+  SHOT_CLOCK: 12,         // PRO MATCH: seconds to get a shot up
 };
-// (let, not const: the PRO MATCH pitch is bigger, and Pitch.use moves the goals with it)
-let GOAL_Y1 = (CFG.FIELD_H - CFG.GOAL_W) / 2;
-let GOAL_Y2 = GOAL_Y1 + CFG.GOAL_W;
+// (kept for the parts of the game that still ask where "the goal" is: the backboard's span)
+let GOAL_Y1 = (CFG.FIELD_H - CFG.BOARD_W) / 2;
+let GOAL_Y2 = GOAL_Y1 + CFG.BOARD_W;
 const OUTLINE = '#161a33';
 
 const TEAMS = {
@@ -111,75 +117,75 @@ const HAIR_COLORS = ['#2b1d14', '#4a2e1c', '#6b3f22', '#1b1b2a', '#f2c230', '#b8
 // you do with the moment is still yours.
 const SKILLS = [
   { id: 'classic', name: tl('Classic'), rarity: 'starter', read: true,
-    blurb: tl('Reads the stick: nutmeg, flick, burst, Cruyff turn or hop, whichever the moment wants.') },
+    blurb: tl('Reads the stick: a crossover, a spin, a burst, a stepback or a hesitation, whichever the moment wants.') },
 
   // ---- rare: a trick, cleanly done
-  { id: 'rainbow', name: tl('Rainbow Flick'), rarity: 'rare', say: tl('RAINBOW!'), color: '#ffc21a',
-    ball: { speed: 300, lift: 620, over: true }, self: { hop: 0.34, dodge: 0.4, burst: 0.5, kick: 0.2 },
+  { id: 'rainbow', name: tl('Between the Legs'), rarity: 'rare', say: tl('BETWEEN THE LEGS!'), color: '#ffc21a',
+    ball: { keep: true }, self: { hop: 0.34, dodge: 0.4, burst: 0.5, kick: 0.2 },
     fx: { kind: 'ring', color: '#ffc21a', r0: 8, r1: 34, life: 0.3 }, meter: 6,
-    blurb: tl('Scoop it up over your own head and run onto it.') },
-  { id: 'stepover', name: tl('Stepover'), rarity: 'rare', say: tl('STEPOVER!'), color: '#ffffff',
+    blurb: tl('Through the legs into the other hand, and gone before they can reach.') },
+  { id: 'stepover', name: tl('Hesitation'), rarity: 'rare', say: tl('HESI!'), color: '#ffffff',
     ball: { keep: true }, self: { dodge: 0.52, turn: 'aim' }, hit: { radius: 46, stun: 0.3 },
     fx: { kind: 'ring', color: '#ffffff', r0: 6, r1: 30, life: 0.26 }, meter: 4,
-    blurb: tl('Feet over the ball until whoever is watching them stops believing you.') },
-  { id: 'dragback', name: tl('Drag Back'), rarity: 'rare', say: tl('DRAG BACK!'), color: '#86e8e2',
+    blurb: tl('Stop dead, sell the pull-up, and go while they are still believing it.') },
+  { id: 'dragback', name: tl('Stepback'), rarity: 'rare', say: tl('STEPBACK!'), color: '#86e8e2',
     ball: { keep: true, back: true }, self: { dodge: 0.45, turn: 'reverse', kick: 0.2 },
     fx: { kind: 'ring', color: '#86e8e2', r0: 4, r1: 22, life: 0.24 }, meter: 4,
-    blurb: tl('Pull it back under your foot and leave them going the other way.') },
-  { id: 'heelflick', name: tl('Heel Flick'), rarity: 'rare', say: tl('HEEL!'), color: '#ff8af0',
-    ball: { speed: 420, lift: 180 }, self: { burst: 0.6, dodge: 0.3, kick: 0.18 }, hit: { radius: 40, stun: 0.25 },
+    blurb: tl('A hop back away from whoever is on you, ball and all.') },
+  { id: 'heelflick', name: tl('Behind the Back'), rarity: 'rare', say: tl('BEHIND THE BACK!'), color: '#ff8af0',
+    ball: { keep: true }, self: { burst: 0.6, dodge: 0.3, kick: 0.18 }, hit: { radius: 40, stun: 0.25 },
     fx: { kind: 'sparks', color: '#ff8af0', n: 10, speed: 120 }, meter: 5,
-    blurb: tl('Flick it on with the back of your boot without breaking stride.') },
-  { id: 'roulette', name: tl('Roulette'), rarity: 'rare', say: tl('ROULETTE!'), color: '#9ad1ff',
+    blurb: tl('Round your back without breaking stride, and past them on the other side.') },
+  { id: 'roulette', name: tl('Spin Move'), rarity: 'rare', say: tl('SPIN MOVE!'), color: '#9ad1ff',
     ball: { keep: true }, self: { dodge: 0.5, spin: 1, turn: 'aim' },
     fx: { kind: 'ring', color: '#9ad1ff', r0: 6, r1: 28, life: 0.26 }, meter: 5,
-    blurb: tl('Turn right through the tackle with the ball under your foot.') },
-  { id: 'scoopturn', name: tl('Scoop Turn'), rarity: 'rare', say: tl('SCOOP!'), color: '#ffd166',
+    blurb: tl('Turn right through the reach with the ball tucked in tight.') },
+  { id: 'scoopturn', name: tl('Pull-Back'), rarity: 'rare', say: tl('PULL-BACK!'), color: '#ffd166',
     ball: { keep: true, back: true }, self: { dodge: 0.46, turn: 'reverse', kick: 0.2 },
     fx: { kind: 'ring', color: '#ffd166', r0: 5, r1: 24, life: 0.24 }, meter: 4,
-    blurb: tl('Lift it back behind you and go and get it yourself.') },
-  { id: 'toepoke', name: tl('Toe Poke'), rarity: 'rare', say: tl('TOE POKE!'), color: '#ff8a1f',
-    ball: { speed: 480, lift: 90 }, self: { burst: 0.55, dodge: 0.28, kick: 0.16 }, hit: { radius: 38, stun: 0.22 },
+    blurb: tl('Pull it back across your body and go the way you came.') },
+  { id: 'toepoke', name: tl('Quick First Step'), rarity: 'rare', say: tl('FIRST STEP!'), color: '#ff8a1f',
+    ball: { keep: true }, self: { burst: 0.55, dodge: 0.28, kick: 0.16 }, hit: { radius: 38, stun: 0.22 },
     fx: { kind: 'sparks', color: '#ff8a1f', n: 9, speed: 130 }, meter: 5,
-    blurb: tl('No backlift, no warning, gone.') },
-  { id: 'shoulderdrop', name: tl('Shoulder Drop'), rarity: 'rare', say: tl('DROPPED HIM!'), color: '#c2f5f1',
+    blurb: tl('No warning, no wind-up. Gone.') },
+  { id: 'shoulderdrop', name: tl('Shoulder Fake'), rarity: 'rare', say: tl('FAKE!'), color: '#c2f5f1',
     ball: { keep: true }, self: { dodge: 0.55, turn: 'aim' }, hit: { radius: 44, stun: 0.28 },
     fx: { kind: 'burst', color: '#c2f5f1', size: 20 }, meter: 5,
     blurb: tl('Lean one way hard enough that they buy it, then go the other.') },
-  { id: 'chopcut', name: tl('Chop Cut'), rarity: 'rare', say: tl('CHOP!'), color: '#86e8e2',
+  { id: 'chopcut', name: tl('In-and-Out'), rarity: 'rare', say: tl('IN AND OUT!'), color: '#86e8e2',
     ball: { keep: true }, self: { dodge: 0.5, burst: 0.35, turn: 'aim', kick: 0.18 },
     fx: { kind: 'ring', color: '#86e8e2', r0: 5, r1: 26, life: 0.25 }, meter: 5,
-    blurb: tl('Chop it back across your own body and set off again.') },
+    blurb: tl('Fake the crossover, keep it in the same hand, and leave them reaching.') },
 
   // ---- epic: the ones that make people stand up
-  { id: 'elastico', name: tl('Elastico'), rarity: 'epic', say: tl('ELASTICO!'), color: '#b04dff',
+  { id: 'elastico', name: tl('Killer Crossover'), rarity: 'epic', say: tl('KILLER CROSS!'), color: '#b04dff',
     ball: { keep: true }, self: { dodge: 0.62, burst: 0.45, turn: 'aim' }, hit: { radius: 54, stun: 0.34 },
     fx: { kind: 'ring', color: '#b04dff', r0: 6, r1: 38, life: 0.3, width: 4 }, meter: 7,
-    blurb: tl('Snap it one way, take it the other, all in the same touch.') },
-  { id: 'sombrero', name: tl('Sombrero'), rarity: 'epic', say: tl('SOMBRERO!'), color: '#ffe14d',
-    ball: { speed: 360, lift: 760, over: true }, self: { burst: 0.75, dodge: 0.45, hop: 0.3 }, hit: { radius: 52, stun: 0.3 },
+    blurb: tl('Snap it one way, take it the other, all in one bounce.') },
+  { id: 'sombrero', name: tl('Eurostep'), rarity: 'epic', say: tl('EUROSTEP!'), color: '#ffe14d',
+    ball: { keep: true }, self: { burst: 0.75, dodge: 0.45, hop: 0.3 }, hit: { radius: 52, stun: 0.3 },
     fx: { kind: 'stars' }, meter: 8,
-    blurb: tl('Straight over their head, and you are past before it lands.') },
-  { id: 'spincycle', name: tl('Spin Cycle'), rarity: 'epic', say: tl('SPIN CYCLE!'), color: '#46d9ff',
+    blurb: tl('One step one way, the next step the other, and past them before they turn.') },
+  { id: 'spincycle', name: tl('Double Spin'), rarity: 'epic', say: tl('DOUBLE SPIN!'), color: '#46d9ff',
     ball: { keep: true }, self: { dodge: 0.7, spin: 2, turn: 'aim' },
     fx: { kind: 'ring', color: '#46d9ff', r0: 10, r1: 44, life: 0.36, width: 4 }, meter: 7,
     blurb: tl('Two turns, not one. Nobody follows the second.') },
-  { id: 'ghoststep', name: tl('Ghost Step'), rarity: 'epic', say: tl('GHOST!'), color: '#c2f5f1',
+  { id: 'ghoststep', name: tl('Ghost Dribble'), rarity: 'epic', say: tl('GHOST!'), color: '#c2f5f1',
     ball: { keep: true }, self: { dodge: 0.85, burst: 0.6, ghost: true },
     fx: { kind: 'burst', color: '#c2f5f1', size: 26 }, meter: 8,
-    blurb: tl('For a moment there is nothing there to tackle.') },
-  { id: 'blindturn', name: tl('Blind Turn'), rarity: 'epic', say: tl('BLIND TURN!'), color: '#ffffff',
+    blurb: tl('For a moment there is nothing there to steal.') },
+  { id: 'blindturn', name: tl('Reverse Pivot'), rarity: 'epic', say: tl('PIVOT!'), color: '#ffffff',
     ball: { keep: true, back: true }, self: { dodge: 0.55, burst: 0.7, turn: 'reverse' }, hit: { radius: 48, stun: 0.3 },
     fx: { kind: 'ring', color: '#ffffff', r0: 8, r1: 36, life: 0.3 }, meter: 7,
     blurb: tl('Turn without looking and go back the way you came, faster.') },
-  { id: 'akka', name: tl('Akka Flick'), rarity: 'epic', say: tl('AKKA!'), color: '#ffb0f0',
-    ball: { speed: 340, lift: 700, over: true }, self: { hop: 0.32, burst: 0.7, dodge: 0.42 }, hit: { radius: 48, stun: 0.28 },
+  { id: 'akka', name: tl('Combo Dribble'), rarity: 'epic', say: tl('COMBO!'), color: '#ffb0f0',
+    ball: { keep: true }, self: { hop: 0.32, burst: 0.7, dodge: 0.42 }, hit: { radius: 48, stun: 0.28 },
     fx: { kind: 'stars' }, meter: 8,
-    blurb: tl('Both feet round it and up over the lot of them.') },
-  { id: 'crossover', name: tl('Crossover'), rarity: 'epic', say: tl('CROSSOVER!'), color: '#7fdcff',
+    blurb: tl('Between the legs, behind the back and through the lot of them.') },
+  { id: 'crossover', name: tl('Snatch Back'), rarity: 'epic', say: tl('SNATCH BACK!'), color: '#7fdcff',
     ball: { keep: true }, self: { dodge: 0.65, burst: 0.5, turn: 'aim' }, hit: { radius: 50, stun: 0.32 },
     fx: { kind: 'ring', color: '#7fdcff', r0: 6, r1: 36, life: 0.28, width: 4 }, meter: 7,
-    blurb: tl('Across your body and away, before the first foot has landed.') },
+    blurb: tl('Across your body and back again, before their first foot has landed.') },
   { id: 'pendulum', name: tl('Pendulum'), rarity: 'epic', say: tl('PENDULUM!'), color: '#b04dff',
     ball: { keep: true }, self: { dodge: 0.68, spin: 1.5, turn: 'aim' }, hit: { radius: 46, stun: 0.3 },
     fx: { kind: 'ring', color: '#b04dff', r0: 8, r1: 40, life: 0.34, width: 4 }, meter: 8,
@@ -188,10 +194,10 @@ const SKILLS = [
     ball: { keep: true }, self: { burst: 0.95, dodge: 0.4 },
     fx: { kind: 'sparks', color: '#46d9ff', n: 16, speed: 170, life: 0.34 }, meter: 7,
     blurb: tl('Tuck in behind them and come out the other side at speed.') },
-  { id: 'flipflap', name: tl('Flip Flap'), rarity: 'epic', say: tl('FLIP FLAP!'), color: '#ffe14d',
+  { id: 'flipflap', name: tl('Yo-Yo Dribble'), rarity: 'epic', say: tl('YO-YO!'), color: '#ffe14d',
     ball: { keep: true }, self: { dodge: 0.7, burst: 0.45, turn: 'aim' }, hit: { radius: 52, stun: 0.3 },
     fx: { kind: 'burst', color: '#ffe14d', size: 26 }, meter: 8,
-    blurb: tl('Out and back in one touch. The second one is the one that does it.') },
+    blurb: tl('Out and back on a string. The second one is the one that does it.') },
 
   // ---- legendary: now it is a weapon
   { id: 'tornado', name: tl('Tornado'), rarity: 'legendary', say: tl('TORNADO!'), color: '#7fdcff',
@@ -226,10 +232,10 @@ const SKILLS = [
     ball: { keep: true }, self: { dodge: 0.6, burst: 0.5 }, hit: { radius: 80, stun: 0.5, push: 190, fall: true },
     fx: { kind: 'ring', color: '#ffffff', r0: 14, r1: 80, life: 0.4, width: 6, shake: 4 }, meter: 11,
     blurb: tl('One sound, and everyone within range is on the floor.') },
-  { id: 'rocketheel', name: tl('Rocket Heel'), rarity: 'legendary', say: tl('ROCKET!'), color: '#ff5a1f',
-    ball: { speed: 560, lift: 240 }, self: { burst: 1, dodge: 0.4, kick: 0.2 }, hit: { radius: 56, stun: 0.35 },
+  { id: 'rocketheel', name: tl('Rocket Launch'), rarity: 'legendary', say: tl('ROCKET!'), color: '#ff5a1f',
+    ball: { keep: true }, self: { burst: 1, dodge: 0.4, kick: 0.2 }, hit: { radius: 56, stun: 0.35 },
     fx: { kind: 'sparks', color: '#ff5a1f', n: 24, speed: 220, life: 0.4, shake: 2 }, meter: 10,
-    blurb: tl('Backheel it like you meant to hurt it, then go and catch it.') },
+    blurb: tl('Hit the gas off the bounce and leave everyone standing.') },
   { id: 'frostbite', name: tl('Frostbite'), rarity: 'legendary', say: tl('FROZEN!'), color: '#bfe0ff',
     ball: { keep: true }, self: { dodge: 0.65, burst: 0.4 }, hit: { radius: 84, stun: 0.62 },
     fx: { kind: 'ring', color: '#bfe0ff', r0: 12, r1: 84, life: 0.46, width: 5 }, meter: 11,
@@ -239,7 +245,7 @@ const SKILLS = [
   { id: 'thunderstep', name: tl('Thunder Step'), rarity: 'mythic', say: tl('THUNDER!'), color: '#ffe14d',
     ball: { keep: true }, self: { dodge: 0.7, burst: 0.7 }, hit: { radius: 96, stun: 0.6, push: 230, fall: true },
     fx: { kind: 'ring', color: '#ffe14d', r0: 14, r1: 96, life: 0.44, width: 6, shake: 5, flash: 0.18 }, meter: 12,
-    blurb: tl('Put your foot down and the ground answers.') },
+    blurb: tl('Put your foot down and the court answers.') },
   { id: 'zerog', name: tl('Zero Gravity'), rarity: 'mythic', say: tl('ZERO G!'), color: '#86e8e2',
     ball: { keep: true, float: 220 }, self: { dodge: 0.8, hop: 0.6, burst: 0.7 }, hit: { radius: 70, stun: 0.45 },
     fx: { kind: 'ring', color: '#86e8e2', r0: 10, r1: 70, life: 0.5, width: 4 }, meter: 12,
@@ -253,9 +259,9 @@ const SKILLS = [
     fx: { kind: 'sparks', color: '#ff8a1f', n: 28, speed: 240, life: 0.45, shake: 4, flash: 0.14 }, meter: 13,
     blurb: tl('Go up in flames and come out of them already running.') },
   { id: 'starfall', name: tl('Starfall'), rarity: 'mythic', say: tl('STARFALL!'), color: '#ffffff',
-    ball: { speed: 520, lift: 900, over: true }, self: { burst: 1.0, dodge: 0.6, hop: 0.4 }, hit: { radius: 80, stun: 0.45 },
+    ball: { keep: true }, self: { burst: 1.0, dodge: 0.6, hop: 0.4 }, hit: { radius: 80, stun: 0.45 },
     fx: { kind: 'stars', shake: 3 }, meter: 13,
-    blurb: tl('Send it up into the lights and be waiting where it comes down.') },
+    blurb: tl('Bounce it up into the lights and catch it on the run.') },
   { id: 'goatwalk', name: tl('GOAT Walk'), rarity: 'mythic', say: tl('GOAT!'), color: '#ffc21a',
     ball: { keep: true, glue: true }, self: { dodge: 1.15, burst: 1.0, turn: 'aim' }, hit: { radius: 92, stun: 0.55, push: 150 },
     fx: { kind: 'ring', color: '#ffc21a', r0: 12, r1: 92, life: 0.5, width: 6, shake: 4, flash: 0.2 }, meter: 14,
@@ -267,11 +273,11 @@ const SKILLS = [
   { id: 'blackout', name: tl('Blackout'), rarity: 'mythic', say: tl('BLACKOUT!'), color: '#8b4dff',
     ball: { keep: true, glue: true }, self: { dodge: 1, burst: 0.8, ghost: true }, hit: { radius: 90, stun: 0.58 },
     fx: { kind: 'burst', color: '#8b4dff', size: 34, shake: 3, flash: 0.18 }, meter: 13,
-    blurb: tl('The lights go out. When they come back you are through on goal.') },
+    blurb: tl('The lights go out. When they come back you are through to the rim.') },
   { id: 'riptide', name: tl('Riptide'), rarity: 'mythic', say: tl('RIPTIDE!'), color: '#2f7bff',
     ball: { keep: true, float: 200 }, self: { dodge: 0.85, hop: 0.5, burst: 0.8 }, hit: { radius: 96, stun: 0.5, push: 240, fall: true },
     fx: { kind: 'ring', color: '#2f7bff', r0: 14, r1: 96, life: 0.5, width: 6, shake: 4 }, meter: 13,
-    blurb: tl('The ground goes out from under everybody but you.') },
+    blurb: tl('The floor goes out from under everybody but you.') },
   { id: 'eclipsestep', name: tl('Eclipse Step'), rarity: 'mythic', say: tl('ECLIPSE!'), color: '#c2f5f1',
     ball: { keep: true, glue: true }, self: { dodge: 1.1, burst: 0.9, dash: 50 }, hit: { radius: 94, stun: 0.56, push: 170 },
     fx: { kind: 'ring', color: '#c2f5f1', r0: 16, r1: 94, life: 0.5, width: 6, flash: 0.16 }, meter: 14,
@@ -285,11 +291,11 @@ const SKILLS = [
   { id: 'icecut', name: tl('Ice Cut'), rarity: 'rare', say: tl('ICE CUT!'), color: '#bfe9ff',
     ball: { keep: true }, self: { dodge: 0.5, burst: 0.4, turn: 'aim', kick: 0.18 }, hit: { radius: 42, stun: 0.26 },
     fx: { kind: 'sparks', color: '#bfe9ff', n: 10, speed: 120 }, meter: 5,
-    blurb: tl('A sharp cut off the outside of the boot, like a skate on ice.') },
+    blurb: tl('A cut so sharp your shoes squeak, like a skate on ice.') },
   { id: 'fallingleaf', name: tl('Falling Leaf'), rarity: 'rare', say: tl('FALLING LEAF!'), color: '#e8742a',
-    ball: { speed: 280, lift: 560, over: true }, self: { hop: 0.3, dodge: 0.38, burst: 0.45, kick: 0.2 },
+    ball: { keep: true }, self: { hop: 0.3, dodge: 0.38, burst: 0.45, kick: 0.2 },
     fx: { kind: 'ring', color: '#e8742a', r0: 8, r1: 32, life: 0.3 }, meter: 6,
-    blurb: tl('Float it up over them and let it drift down in front of you.') },
+    blurb: tl('A floating hang-dribble that drifts past them like a leaf.') },
   { id: 'snowglobe', name: tl('Snow Globe'), rarity: 'epic', say: tl('SNOW GLOBE!'), color: '#dff3ff',
     ball: { keep: true }, self: { dodge: 0.66, spin: 1.5, turn: 'aim' }, hit: { radius: 48, stun: 0.3 },
     fx: { kind: 'stars' }, meter: 7,
@@ -442,7 +448,7 @@ const ACCESSORIES = [
   { id: 'horns',       name: tl('Devil Horns'),     slot: 'head', price: 35000 },
   { id: 'halo',        name: tl('Halo'),            slot: 'head', price: 40000 },
   { id: 'cape',        name: tl('Hero Cape'),       slot: 'back', price: 45000 },
-  { id: 'goldboots',   name: tl('Golden Boots'),    slot: 'feet', price: 50000 },
+  { id: 'goldboots',   name: tl('Golden Sneakers'),    slot: 'feet', price: 50000 },
   { id: 'wings',       name: tl('Angel Wings'),     slot: 'back', price: 60000 },
   { id: 'jetpack',       name: tl('Jetpack'),          slot: 'back', price: 75000 },
   { id: 'royalcrown',    name: tl('Royal Crown'),      slot: 'head', price: 80000 },
@@ -453,8 +459,8 @@ const ACCESSORIES = [
   { id: 'royalcape',     name: tl('Royal Cape'),       slot: 'back', price: 140000 },
   { id: 'diamondchain',  name: tl('Diamond Chain'),    slot: 'neck', price: 150000 },
   { id: 'worldmedal',    name: tl('World Medal'),      slot: 'neck', price: 160000 },
-  { id: 'galaxyboots',   name: tl('Galaxy Boots'),     slot: 'feet', price: 175000 },
-  { id: 'flameboots',    name: tl('Flame Boots'),      slot: 'feet', price: 185000 },
+  { id: 'galaxyboots',   name: tl('Galaxy Sneakers'),     slot: 'feet', price: 175000 },
+  { id: 'flameboots',    name: tl('Flame Sneakers'),      slot: 'feet', price: 185000 },
   { id: 'robotarm',      name: tl('Robot Arm'),        slot: 'arm',  price: 195000 },
   { id: 'kingmantle',    name: tl("King's Mantle"),   slot: 'back', price: 210000 },
   { id: 'spacehelmet',   name: tl('Space Helmet'),     slot: 'head', price: 225000 },
@@ -474,14 +480,14 @@ const ACCESSORIES = [
   { id: 'warstripes',   name: tl('War Stripes'),     slot: 'face', rarity: 'epic',      price: 46000 },
   { id: 'beads',        name: tl('Lucky Beads'),     slot: 'neck', rarity: 'epic',      price: 50000 },
   { id: 'powerband',    name: tl('Power Band'),      slot: 'arm',  rarity: 'epic',      price: 56000 },
-  { id: 'neonboots',    name: tl('Neon Boots'),      slot: 'feet', rarity: 'epic',      price: 62000 },
+  { id: 'neonboots',    name: tl('Neon Sneakers'),      slot: 'feet', rarity: 'epic',      price: 62000 },
   { id: 'firecrown',    name: tl('Crown of Fire'),   slot: 'head', rarity: 'legendary', price: 90000 },
   { id: 'icecrown',     name: tl('Frost Crown'),     slot: 'head', rarity: 'legendary', price: 100000 },
   { id: 'phantommask',  name: tl('Phantom Mask'),    slot: 'face', rarity: 'legendary', price: 115000 },
   { id: 'rubypendant',  name: tl('Ruby Pendant'),    slot: 'neck', rarity: 'legendary', price: 130000 },
   { id: 'gauntlet',     name: tl('Gauntlet'),        slot: 'arm',  rarity: 'legendary', price: 145000 },
   { id: 'icewings',     name: tl('Ice Wings'),       slot: 'back', rarity: 'legendary', price: 165000 },
-  { id: 'frostboots',   name: tl('Frost Boots'),     slot: 'feet', rarity: 'legendary', price: 185000 },
+  { id: 'frostboots',   name: tl('Frost Sneakers'),     slot: 'feet', rarity: 'legendary', price: 185000 },
   { id: 'stormcloud',   name: tl('Storm Cloud'),     slot: 'head', rarity: 'mythic',    price: 280000 },
   { id: 'voidmask',     name: tl('Void Mask'),       slot: 'face', rarity: 'mythic',    price: 330000 },
   { id: 'cosmicchain',  name: tl('Cosmic Chain'),    slot: 'neck', rarity: 'mythic',    price: 390000 },
@@ -490,24 +496,17 @@ const ACCESSORIES = [
 const ACCESSORY_IDS = new Set(ACCESSORIES.map((a) => a.id));
 const ACCESSORY_FACE_IDS = new Set(ACCESSORIES.filter((a) => a.slot === 'face').map((a) => a.id));
 
-// the four ways an ult shot can be struck, picked at random every time it goes off. (The online
-// match sends the index, so the order stays put: the scorpion kick took the scissor kick's slot.)
-const ULT_KINDS = ['volley', 'bicycle', 'backflip', 'scorpion'];
-const ULT_NAMES = { volley: tl('VOLLEY'), bicycle: tl('BICYCLE KICK'), backflip: tl('BACKFLIP KICK'), scorpion: tl('SCORPION KICK'), scissors: tl('SCISSOR KICK') };
-const randomUlt = (rand = Math.random) => ULT_KINDS[(rand() * ULT_KINDS.length) | 0];
-// Every character has a signature finish: the kick they always pull out when their ult goes off.
-// A handful are hand-picked, the rest are spread evenly and never change for that character.
-const SIGNATURES = {
-  goat: 'bicycle', phantom: 'scissors', ninja: 'scissors', goldenboot: 'volley', afroking: 'bicycle',
-  mohawk: 'volley', viking: 'volley', robot: 'backflip', titan: 'volley', galaxy: 'backflip',
-  inferno: 'bicycle', iceking: 'scissors', astronaut: 'backflip', wizard: 'scissors', lion: 'bicycle',
-  shark: 'scissors', pharaoh: 'backflip', knight: 'volley', pirate: 'bicycle', cowboy: 'volley',
-  samurai: 'scissors', dreads: 'bicycle', jacob: 'backflip', street: 'volley', striker: 'volley',
-  flow: 'volley', matt: 'bicycle',
-};
+// The four ON FIRE shots, picked at random each time one goes off: by the rim a windmill or a
+// tomahawk dunk, anywhere else a fadeaway or a skyhook. (Online sends the index: keep the order.)
+const ULT_KINDS = ['windmill', 'tomahawk', 'fadeaway', 'skyhook'];
+const ULT_NAMES = { windmill: tl('WINDMILL DUNK'), tomahawk: tl('TOMAHAWK DUNK'), fadeaway: tl('FADEAWAY'), skyhook: tl('SKYHOOK') };
+const ULT_DUNKS = ['windmill', 'tomahawk'], ULT_SHOTS = ['fadeaway', 'skyhook'];
+// near: true by the rim (a dunk), false further out (a shot), anything else any of the four
+const randomUlt = (near, rnd = Math.random) => { const pool = near === true ? ULT_DUNKS : near === false ? ULT_SHOTS : ULT_KINDS; return pool[(rnd() * pool.length) | 0]; };
+// Every character has a signature finish (an old idea, kept for anything that still shows it).
+const SIGNATURES = {};
 function sigKind(c) {
   if (!c) return ULT_KINDS[0];
-  if (SIGNATURES[c.id]) return SIGNATURES[c.id];
   let h = 0;
   for (let i = 0; i < c.id.length; i++) h = (h * 31 + c.id.charCodeAt(i)) >>> 0;
   return ULT_KINDS[h % ULT_KINDS.length];
@@ -588,7 +587,7 @@ function rankDelta(outcome, challenges = 0) {
   return outcome === 'loss' ? -RANK_LOSS : 0;
 }
 // quick chat: the only things anyone can say in a match (no typing, so nothing nasty gets through)
-const QUICK_CHAT = ['HI!', 'NICE ONE!', 'PASS!', 'SHOOT!', 'DEFEND!', 'WHAT A GOAL!', 'THANKS!', 'SORRY!', 'UNLUCKY', 'WOW!', "LET'S GO!", 'GG'];
+const QUICK_CHAT = ['HI!', 'NICE ONE!', 'PASS!', 'SHOOT!', 'DEFEND!', 'WHAT A SHOT!', 'THANKS!', 'SORRY!', 'UNLUCKY', 'WOW!', "LET'S GO!", 'GG'];
 const ordinal = (n) => {
   const lang = typeof I18N !== 'undefined' ? I18N.lang : 'en';
   if (lang === 'es' || lang === 'pt') return n + '.º';
@@ -703,44 +702,40 @@ function ratingAttr(r) {
   return { speed: 1 + f(r.spd) * 0.08, shot: 1 + f(r.sht) * 0.07, finish: -f(r.sht) * 0.07, pass: 1 + f(r.pas) * 0.1, ctl: f(r.ctl), def: f(r.def) };
 }
 
-// ===== Bot difficulty (moved from main.js so the server can load it) =====
+// ===== Bot difficulty (here so the server can load it) =====
 const DIFFICULTY = {
-  // aiSlide: chance per 0.2s check that a pressing bot slides; aiDodge: chance a bot carrier dodges a slide
-  // mistakes: how often bots get it wrong (BOT_MISTAKES), 1 = an average player
-  // 2026-09-16 "make the bots worse": every preset is slower, tackles less, decides later,
-  // shoots wider and slips up more than it did. Your own teammates keep MATE_BASE below.
-  // 2026-09-17 "just barely better", then "make the bots 1.25x better": every knob x1.25 (or /1.25
-  // where lower is better), and the speed gap to a full-speed player closed by a quarter.
-  // 2026-09-27 "make bots better 2x for normal matches": the same again at x2 — they lunge twice
-  // as often, dodge twice as much, skill twice as much, decide twice as fast, shoot half as wide
-  // 2026-10-17 "the bots are too good, make them 2x worse": measured at 3.9-4.7 against a
-  // scripted average player, so the opposition were winning. The 2x is undone and then some —
-  // every knob halved (or doubled where lower is better) and the speed gap opened back up.
-  // Only the opposition: your teammates run on MATE_BASE and keep what they had, because
-  // making them worse too would leave the game exactly as hard as it was.
-  // and make half the mistakes, with the speed gap halved. The caps are the level ramp's own
-  // (dodge 0.8, skill 0.6, react 0.5, noise 14) so a high level cannot push it past playable,
-  // and a lunge chance over 0.8 per check just gets you dribbled round.
-  // 2026-11-15 (build 120) "make it a bit harder offline": every preset a step sharper — a little
-  // quicker, a quarter more tackles, a fifth more dodges and skills, shots 15% straighter, 8% quicker
-  // to react, 13% fewer mistakes, keepers a touch better (HARD a little less, so it moves as far as
-  // the others). The scripted average player over 720 NORMAL matches (1v1/2v2/4v4, four opponents,
-  // player level 1 and 25) won 76% before and 63% after — 87% -> 76% for a brand-new player, 64% ->
-  // 50% at level 25. EASY 99% -> 96%, HARD 62% -> 52% (level 1). Online is untouched.
-  easy:   { redSpeed: 0.927, slideOnHuman: 1, aiSlide: 0.25, aiDodge: 0.25, aiSkill: 0.2,  keeperBonus: -0.02,  aiShotNoise: 44, react: 1.07, mistakes: 1.18 },
-  normal: { redSpeed: 0.955, slideOnHuman: 1, aiSlide: 0.34, aiDodge: 0.45, aiSkill: 0.32, keeperBonus: 0.08,   aiShotNoise: 34, react: 0.92, mistakes: 0.9 },
-  hard:   { redSpeed: 1.008, slideOnHuman: 1, aiSlide: 0.45, aiDodge: 0.44, aiSkill: 0.34, keeperBonus: 0.15,   aiShotNoise: 26, react: 0.96, mistakes: 0.7 },
+  // How good the bots are at basketball. Noah asked for a game that is actually challenging, so
+  // these are tuned by simulation against a scripted player (tools/botscan.js), never by feel.
+  //   redSpeed     how fast they run, against a full-speed player at 1
+  //   react        seconds between decisions (lower is sharper)
+  //   shotPerfect  how often a jump shot is a perfect release; shotGood how often it is a good one
+  //   shoot3 / shootMid   how keen they are to take an open three / an open mid-range shot
+  //   openBar      how open they need to be to shoot (higher takes more contested shots)
+  //   passBar      how much better a teammate's look must be before they give it up
+  //   aiSteal      chance, each decision, that an on-ball defender reaches in
+  //   stealSkill   how often that reach comes away with it (x the base chance)
+  //   slideOnHuman the same against you
+  //   blockSkill   how well-timed their jumps at a shooter are
+  //   gap          how tight they guard the ball (lower is tighter)
+  //   help / rimProtect / board / cut   help defence, jumping with a dunker, crashing the boards, cutting
+  //   aiSkill      chance of a dribble move when somebody is on them
+  //   mistakes     how often they get it wrong (BOT_MISTAKES), 1 = an average player
+  //   (aiSlide, aiDodge, keeperBonus, aiShotNoise: the soccer game's knobs, still read by old code)
+  easy:   { redSpeed: 0.93, react: 0.34, shotPerfect: 0.16, shotGood: 0.46, shoot3: 0.4, shootMid: 0.45, openBar: 0.3, passBar: 0.35,
+    aiSteal: 0.12, stealSkill: 0.75, slideOnHuman: 0.8, blockSkill: 0.7, gap: 54, help: 0.35, rimProtect: 0.35, board: 0.55, cut: 0.12,
+    aiSkill: 0.16, mistakes: 1.35, release: 1.15, aiSlide: 0.2, aiDodge: 0.3, keeperBonus: 0, aiShotNoise: 40 },
+  normal: { redSpeed: 0.975, react: 0.26, shotPerfect: 0.27, shotGood: 0.5, shoot3: 0.5, shootMid: 0.55, openBar: 0.32, passBar: 0.3,
+    aiSteal: 0.2, stealSkill: 0.95, slideOnHuman: 0.95, blockSkill: 0.95, gap: 46, help: 0.5, rimProtect: 0.5, board: 0.7, cut: 0.18,
+    aiSkill: 0.26, mistakes: 1, release: 1, aiSlide: 0.3, aiDodge: 0.4, keeperBonus: 0, aiShotNoise: 32 },
+  hard:   { redSpeed: 1.01, react: 0.2, shotPerfect: 0.36, shotGood: 0.47, shoot3: 0.55, shootMid: 0.6, openBar: 0.34, passBar: 0.25,
+    aiSteal: 0.27, stealSkill: 1.1, slideOnHuman: 1.08, blockSkill: 1.15, gap: 40, help: 0.65, rimProtect: 0.65, board: 0.82, cut: 0.24,
+    aiSkill: 0.34, mistakes: 0.72, release: 0.9, aiSlide: 0.4, aiDodge: 0.45, keeperBonus: 0, aiShotNoise: 24 },
 };
-// online fill-ins (2026-09-19 "bots that are actually good"): quicker, sharper and cleaner than hard,
-// on both sides of an online match. Your level and the World Cup round still add to this.
-// 2026-10-18: halved too, the same as the offline presets. These are the players who fill an
-// online match when there are not enough people, so they are meant to pass for one — and a
-// weaker bot is an easier bot to spot. Asked for anyway, and the offline ones were measured at
-// 3.9-4.7 against an average player, so these were almost certainly too good as well.
-const ONLINE_BOTS = { redSpeed: 0.96, slideOnHuman: 0.95, aiSlide: 0.18, aiDodge: 0.3, aiSkill: 0.2, keeperBonus: 0.07, aiShotNoise: 48, react: 1.4, mistakes: 1.2 };
-// your bot teammates offline: what "normal" was before the bots were made worse, so the
-// players on your side did not get worse too
-const MATE_BASE = { redSpeed: 0.984, slideOnHuman: 0.95, aiSlide: 0.34, aiDodge: 0.48, aiSkill: 0.33, keeperBonus: 0.1, aiShotNoise: 30, react: 0.77, mistakes: 0.75 };
+// online fill-ins: they stand in for a person when there are not enough, so they are meant to pass
+// for one — about "normal", a little less sharp
+const ONLINE_BOTS = { ...DIFFICULTY.normal, react: 0.29, shotPerfect: 0.24, aiSteal: 0.17, mistakes: 1.1 };
+// your bot teammates offline: steady, a little better than "normal", so your side is never the weak link
+const MATE_BASE = { ...DIFFICULTY.normal, redSpeed: 0.99, react: 0.24, shotPerfect: 0.3, mistakes: 0.85 };
 
 // coin counts for display: 999999 stays exact, then 1.25M, 1B
 function fmtCoins(n) {
@@ -759,96 +754,47 @@ const LEVEL_RAMP_TOP = 50;
 const RANKS = [[1, tl('ROOKIE')], [6, tl('PRO')], [12, tl('STAR')], [20, tl('ELITE')], [30, tl('WORLD CLASS')], [40, tl('LEGEND')], [50, tl('GOAT')]];
 const rankFor = (level) => { let n = RANKS[0][1]; for (const [lv, name] of RANKS) if (level >= lv) n = name; return n; };
 const levelRampPct = (level) => Math.round(clamp((level - 1) / (LEVEL_RAMP_TOP - 1), 0, 1) * 100);
-// The bigger the format, the more room an attacker gets and the less each bot can cover, so the
-// opposition is sharpened to match. 1v1 stays exactly as it was; 4v4 was the runaway one.
-const FORMAT_RAMP = { '4v4': 1, '3v3': 0.8, '2v2': 0.45, '1v1': 0, training: 0 };
-// How much of the preset a format keeps. 2026-09-27: doubling the bots made 4v4 a proper contest
-// but 1v1 brutal — one bot, on you the whole match, with nobody on your side to take the weight.
-// The ramp above only ever pushed the big formats up, so this takes some back off the small ones.
-const FORMAT_EASE = { '4v4': 1, '3v3': 0.95, '2v2': 0.85, '1v1': 0.45, training: 0.45 };
-function formatRamp(b, format) {
-  const u = FORMAT_RAMP[format] || 0;
-  let r = b;
-  if (u > 0) {
-    r = {
-      ...b,
-      redSpeed: b.redSpeed + u * 0.05,
-      aiSlide: b.aiSlide * (1 + u * 0.8),
-      aiDodge: Math.min(0.85, b.aiDodge * (1 + u * 0.5)),
-      aiSkill: Math.min(0.6, b.aiSkill * (1 + u * 0.5)),
-      aiShotNoise: Math.max(14, b.aiShotNoise * (1 - u * 0.3)),
-      react: Math.max(0.45, b.react * (1 - u * 0.3)),
-      mistakes: Math.max(0.35, b.mistakes * (1 - u * 0.35)),
-    };
-  }
-  const e = FORMAT_EASE[format] === undefined ? 1 : FORMAT_EASE[format];
-  if (e >= 1) return r;
+
+// sharper (u > 0) or softer (u < 0) at every knob, kept to what is still playable
+function sharpen(b, u) {
   return {
-    ...r,
-    redSpeed: 1 - (1 - r.redSpeed) / e,   // the speed gap to you opens back up
-    // slideOnHuman is left alone on purpose: it is what stops you strolling the ball into the
-    // net, and easing it took 1v1 walk-ins from 1% to 12%.
-    aiSlide: r.aiSlide * e,
-    aiDodge: r.aiDodge * e,
-    aiSkill: r.aiSkill * e,
-    keeperBonus: r.keeperBonus * e,
-    aiShotNoise: r.aiShotNoise / e,
-    react: r.react / e,
-    mistakes: r.mistakes / e,
+    ...b,
+    redSpeed: b.redSpeed + u * 0.05,
+    react: clamp(b.react * (1 - u * 0.3), 0.14, 0.6),
+    shotPerfect: clamp(b.shotPerfect * (1 + u * 0.35), 0.05, 0.55),
+    aiSteal: clamp(b.aiSteal * (1 + u * 0.5), 0.04, 0.45),
+    stealSkill: clamp(b.stealSkill * (1 + u * 0.2), 0.4, 1.4),
+    blockSkill: clamp(b.blockSkill * (1 + u * 0.3), 0.4, 1.5),
+    gap: clamp(b.gap * (1 - u * 0.12), 34, 70),
+    help: clamp(b.help * (1 + u * 0.4), 0.1, 0.9),
+    rimProtect: clamp(b.rimProtect * (1 + u * 0.4), 0.1, 0.9),
+    board: clamp(b.board * (1 + u * 0.2), 0.2, 0.95),
+    aiSkill: clamp(b.aiSkill * (1 + u * 0.5), 0.05, 0.5),
+    mistakes: clamp(b.mistakes * (1 - u * 0.4), 0.3, 2),
   };
 }
+// The more there are on court, the more room there is to cover: a 3v3 side is sharpened a
+// little, 1v1 is eased (one bot on you all match, with nobody on your side to take the weight).
+const FORMAT_SHARP = { '3v3': 0.25, '2v2': 0.1, '1v1': -0.25, training: -0.4 };
+function formatRamp(b, format) { return sharpen(b, FORMAT_SHARP[format] || 0); }
 
 function playerRamp(b, level) {
   const u = clamp(((level || 1) - 1) / (LEVEL_RAMP_TOP - 1), 0, 1);
   if (u <= 0) return { ...b, playerLevel: level || 1, ramp: 0 };
-  return {
-    ...b,
-    redSpeed: b.redSpeed + u * 0.07,
-    slideOnHuman: Math.min(1, b.slideOnHuman * (1 + u * 0.35)),
-    aiSlide: b.aiSlide * (1 + u * 0.9),
-    aiDodge: Math.min(0.8, b.aiDodge * (1 + u * 0.8)),
-    aiSkill: Math.min(0.6, b.aiSkill * (1 + u * 0.8)),
-    keeperBonus: b.keeperBonus + u * 0.1,
-    aiShotNoise: Math.max(14, b.aiShotNoise * (1 - u * 0.45)),
-    react: Math.max(0.5, b.react * (1 - u * 0.4)),
-    mistakes: Math.max(0.28, b.mistakes * (1 - u * 0.65)),
-    playerLevel: level,
-    ramp: u,
-  };
+  return { ...sharpen(b, u * 0.9), slideOnHuman: Math.min(1.25, b.slideOnHuman * (1 + u * 0.25)), playerLevel: level, ramp: u };
 }
 
-// a difficulty leaned on by a team's level (0..3): better teams are quicker and slip up less
-function levelDiff(b, lv) {
-  return {
-    ...b,
-    redSpeed: b.redSpeed + (lv - 1) * 0.015,
-    aiSlide: b.aiSlide * (0.85 + lv * 0.08),
-    aiDodge: b.aiDodge * (0.85 + lv * 0.1),
-    aiSkill: b.aiSkill * (0.8 + lv * 0.12),
-    keeperBonus: b.keeperBonus + (lv - 1) * 0.03,
-    aiShotNoise: Math.max(16, b.aiShotNoise - (lv - 1) * 4),
-    slideOnHuman: b.slideOnHuman * (0.95 + lv * 0.04),
-    mistakes: (b.mistakes || 1) * (1.12 - lv * 0.08),
-  };
-}
+// a difficulty leaned on by a team's level (0..3): better teams are sharper and slip up less
+function levelDiff(b, lv) { return sharpen(b, (lv - 1) * 0.12); }
 
-// Bots play like average players, on both teams and online: misplaced and badly weighted
-// passes, heavy first touches, loose dribbles, scuffed and wild shots, mistimed tackles,
-// switching off, and keepers spilling the odd one. Chances are per action, times the
-// difficulty's mistakes factor.
+// Bots make an average player's mistakes, on both teams and online: wayward and badly weighted
+// passes, wrong choices of who to pass to, a reach that connects but is mistimed. Chances are per
+// action, times the difficulty's mistakes factor.
 const BOT_MISTAKES = {
-  passAim: 0.06,       // radians of aim wobble on every pass (doubled under pressure)
-  passBad: 0.1,        // a pass that is badly off: well wide and under/over-hit
-  wrongPass: 0.3,      // score noise when picking who to pass to
-  heavyTouch: 0.13,    // a firm pass bounces off the receiver instead of being controlled
-  looseTouch: 0.08,    // per decision while a defender is close: knocks it too far ahead
-  shotScuff: 0.12,     // shot comes off weak
-  shotWild: 0.15,      // shot flies well wide
-  longShot: 0.06,      // per decision from 900-1300 away: have a go anyway
-  tackleMiss: 0.14,    // a tackle that connects but is mistimed
-  lapse: 0.07,         // per second off the ball: switches off for a moment
-  lapseTime: [0.5, 1.3],
-  keeperSpill: 0.07,   // a saved shot squirts back out in front of goal
+  passAim: 0.05,       // radians of aim wobble on every pass (doubled under pressure)
+  passBad: 0.07,       // a pass that is badly off
+  wrongPass: 0.3,      // noise when picking who to pass to
+  tackleMiss: 0.14,    // a reach that gets there but is mistimed
 };
 
 const TRAILS = [
@@ -941,42 +887,31 @@ const WALLS = [];
 const POSTS = [];
 const ARENA_POLY = [];
 function buildWalls() {
+  // the fence round the court: a rectangle with its corners cut, no pockets (there are no goals)
   WALLS.length = 0; POSTS.length = 0; ARENA_POLY.length = 0;
-  const W = CFG.FIELD_W, H = CFG.FIELD_H, M = CFG.SIDE_M, E = CFG.END_M, C = CFG.CHAMFER, D = CFG.GOAL_D;
+  const W = CFG.FIELD_W, H = CFG.FIELD_H, M = CFG.SIDE_M, E = CFG.END_M, C = CFG.CHAMFER;
   const pts = [
-    [-E + C, -M], [W + E - C, -M], [W + E, -M + C], [W + E, GOAL_Y1],
-    [W + D, GOAL_Y1], [W + D, GOAL_Y2], [W + E, GOAL_Y2], [W + E, H + M - C],
-    [W + E - C, H + M], [-E + C, H + M], [-E, H + M - C], [-E, GOAL_Y2],
-    [-D, GOAL_Y2], [-D, GOAL_Y1], [-E, GOAL_Y1], [-E, -M + C],
+    [-E + C, -M], [W + E - C, -M], [W + E, -M + C], [W + E, H + M - C],
+    [W + E - C, H + M], [-E + C, H + M], [-E, H + M - C], [-E, -M + C],
   ];
   const add = (ax, ay, bx, by, kind, side) => {
     const dx = bx - ax, dy = by - ay, l = Math.hypot(dx, dy);
     WALLS.push({ ax, ay, bx, by, dx, dy, len2: l * l, nx: -dy / l, ny: dx / l, kind, side });
   };
   ARENA_POLY.push(...pts);
-  const pocket = [3, 4, 5, 11, 12, 13];
   for (let i = 0; i < pts.length; i++) {
     const a = pts[i], b = pts[(i + 1) % pts.length];
-    const side = a[0] > W / 2 ? 'right' : 'left';
-    add(a[0], a[1], b[0], b[1], pocket.includes(i) ? 'net' : 'board', side);
+    add(a[0], a[1], b[0], b[1], 'board', a[0] > W / 2 ? 'right' : 'left');
   }
-  add(W, GOAL_Y1, W + E, GOAL_Y1, 'net', 'right');
-  add(W, GOAL_Y2, W + E, GOAL_Y2, 'net', 'right');
-  add(0, GOAL_Y1, -E, GOAL_Y1, 'net', 'left');
-  add(0, GOAL_Y2, -E, GOAL_Y2, 'net', 'left');
-  POSTS.push({ x: W, y: GOAL_Y1 }, { x: W, y: GOAL_Y2 }, { x: 0, y: GOAL_Y1 }, { x: 0, y: GOAL_Y2 });
 }
 buildWalls();
 
-// The two pitches. 'normal' is every match there has always been. 'pro' is PRO MATCH (build 115): a
-// quarter bigger each way with real touchlines — the ball goes out and the game restarts with a
-// throw-in, a corner or a goal kick (js/rules.js). Its boards stand further back, so a player can
-// stand behind the ball at a corner flag (the normal pitch's cut corners run right through it).
-// The boxes, the goal and the centre circle grow with it. Offline only: the server plays every
-// online match on the normal pitch.
+// Two courts. 'normal' is every match: a street court in a cage, nothing goes out. 'pro' is PRO
+// MATCH: the same court with the fence further back, because there the lines are out of bounds
+// and the game restarts from the side (js/rules.js), and there is room to stand out there.
 const PITCHES = {
-  normal: { FIELD_W: 2400, FIELD_H: 1400, SIDE_M: 40, END_M: 34, CHAMFER: 72, GOAL_W: 380, BOX_D: 380, BOX_W: 860, SMALL_D: 140, SMALL_W: 540, CIRCLE_R: 190 },
-  pro:    { FIELD_W: 3000, FIELD_H: 1750, SIDE_M: 78, END_M: 68, CHAMFER: 44, GOAL_W: 410, BOX_D: 460, BOX_W: 1020, SMALL_D: 160, SMALL_W: 600, CIRCLE_R: 220 },
+  normal: { FIELD_W: 1800, FIELD_H: 1000, SIDE_M: 52, END_M: 74, CHAMFER: 40 },
+  pro:    { FIELD_W: 1800, FIELD_H: 1000, SIDE_M: 120, END_M: 140, CHAMFER: 30 },
 };
 const Pitch = {
   size: 'normal',
@@ -986,8 +921,8 @@ const Pitch = {
     if (want === this.size) return false;
     this.size = want;
     Object.assign(CFG, PITCHES[want]);
-    GOAL_Y1 = (CFG.FIELD_H - CFG.GOAL_W) / 2;
-    GOAL_Y2 = GOAL_Y1 + CFG.GOAL_W;
+    GOAL_Y1 = (CFG.FIELD_H - CFG.BOARD_W) / 2;
+    GOAL_Y2 = GOAL_Y1 + CFG.BOARD_W;
     buildWalls();
     if (typeof Render !== 'undefined' && Render.ctx) { Render.camOut = 0; Render._miniBox = null; Render.cam.x = CFG.FIELD_W / 2; Render.cam.y = (CFG.FIELD_H / 2) * CFG.TILT; Render.buildLayer(); Render.homeCrowd = null; }
     return true;

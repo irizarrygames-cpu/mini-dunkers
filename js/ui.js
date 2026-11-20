@@ -179,10 +179,10 @@ const UI = {
 
   // rotating control tips while training
   TIPS: {
-    touch: [tl('Drag the joystick to move · hold SPRINT to run faster'), tl('Hold SHOOT to charge, release to shoot'), tl('Push the joystick sideways while shooting to curl it'), tl('SKILL with no direction = HOP over a tackle'),
-      tl('SKILL toward a defender = nutmeg or flick'), tl('No ball? TACKLE near the carrier to steal it'), tl('Fill the ring around SHOOT, then fully charge = POWER SHOT'), tl('Tap PASS when a teammate has it to call for the ball'), tl('Hold PASS for a harder through ball · full charge lofts it')],
-    kb: [tl('WASD to move · hold SHIFT to sprint'), tl('Hold SPACE to charge, release to shoot'), tl('Hold A or D while shooting to curl it'), tl('Q with no direction = HOP over a tackle'),
-      tl('Q toward a defender = nutmeg or flick'), tl('No ball? F near the carrier to tackle'), tl('Fill the power meter, then fully charge = POWER SHOT'), tl('E passes to the teammate you face'), tl('Hold E for a harder through ball · full charge lofts it')],
+    touch: [tl('Drag the joystick to move · hold SPRINT to run faster'), tl('Hold SHOOT, let go at the top of the meter'), tl('Close to the rim, SHOOT goes straight up for a dunk'), tl('SKILL with no direction = a HESITATION'),
+      tl('SKILL sideways = CROSSOVER (a SPIN with someone right on you)'), tl('No ball? STEAL near the dribbler to poke it away'), tl('Fill the power meter: your next good release is a POWER SHOT'), tl('Tap PASS when a teammate has it to call for the ball'), tl('Hold PASS for a lob · lob it to a teammate by the rim = ALLEY-OOP')],
+    kb: [tl('WASD to move · hold SHIFT to sprint'), tl('Hold SPACE, let go at the top of the meter'), tl('Close to the rim, SPACE goes straight up for a dunk'), tl('Q with no direction = a HESITATION'),
+      tl('Q sideways = CROSSOVER (a SPIN with someone right on you)'), tl('No ball? F near the dribbler to steal'), tl('Fill the power meter: your next good release is a POWER SHOT'), tl('E passes to the teammate you face'), tl('Hold E for a lob · lob it to a teammate by the rim = ALLEY-OOP')],
   },
   tickTips(dt) {
     const m = Game.match, show = !!(m && m.training && Game.state === 'match' && m.phase !== 'replay');
@@ -713,7 +713,7 @@ const UI = {
   showQueue(msg) {
     this.closeAll();
     $('queue').hidden = false;
-    $('q-format').textContent = msg.format === 'ranked' ? tl('RANKED · 1v1') : msg.wc !== null && msg.wc !== undefined ? `${msg.cup === 'cc' ? tl('CHAMPIONS CUP') : msg.format === 'pens' ? tl('PENALTY WORLD CUP') : tl('WORLD CUP')} · ${WC_ROUNDS[msg.wc]}${msg.format === 'pens' ? '' : ` · ${msg.format}`}` : tl('ONLINE · {0}', [msg.format === 'fk' ? tl('FREE KICKS') : msg.format === 'pens' ? tl('PENALTIES') : String(msg.format).startsWith('pro/') ? `${tl('PRO MATCH')} ${String(msg.format).slice(4)}` : msg.format]);
+    $('q-format').textContent = msg.format === 'ranked' ? tl('RANKED · 1v1') : msg.wc !== null && msg.wc !== undefined ? `${msg.cup === 'cc' ? tl('CHAMPIONS CUP') : msg.format === 'pens' ? tl('3-POINT WORLD CUP') : tl('WORLD CUP')} · ${WC_ROUNDS[msg.wc]}${msg.format === 'pens' ? '' : ` · ${msg.format}`}` : tl('ONLINE · {0}', [msg.format === 'fk' ? tl('FREE THROWS') : msg.format === 'pens' ? tl('3-POINT CONTEST') : String(msg.format).startsWith('pro/') ? `${tl('PRO MATCH')} ${String(msg.format).slice(4)}` : msg.format]);
     $('q-dots').innerHTML = '<i></i><i></i><i></i>';
     this._queueT = 0;
     $('q-note').textContent = tl('Searching… 0:00');
@@ -730,8 +730,8 @@ const UI = {
     this.closeAll();
     $('lobby').hidden = false;
     $('lb-code').textContent = msg.code;
-    const size = { 'pens': 1, 'fk': 1, '1v1': 1, '2v2': 2, '3v3': 3, '4v4': 4 }[msg.format];
-    $('lb-formats').innerHTML = `<span>${tl('FORMAT')}</span>` + ['pens', 'fk', '1v1', '2v2', '3v3', '4v4'].map((f) => `<button data-f="${f}" class="${f === msg.format ? 'sel' : ''}" ${msg.isHost ? '' : 'disabled'}>${f}</button>`).join('');
+    const size = { 'pens': 1, 'fk': 1, '1v1': 1, '2v2': 2, '3v3': 3 }[msg.format];
+    $('lb-formats').innerHTML = `<span>${tl('FORMAT')}</span>` + ['pens', 'fk', '1v1', '2v2', '3v3'].map((f) => `<button data-f="${f}" class="${f === msg.format ? 'sel' : ''}" ${msg.isHost ? '' : 'disabled'}>${f}</button>`).join('');
     $('lb-formats').querySelectorAll('[data-f]').forEach((b) => b.addEventListener('click', () => { this.tap(); Net.sendSoon({ t: 'room.format', format: b.dataset.f }); }));
     const side = (team, el) => {
       const list = msg.players.filter((p) => p.team === team);
@@ -759,7 +759,7 @@ const UI = {
     $('lb-pro').textContent = pro ? tl('PRO MATCH · ON') : tl('PRO MATCH · OFF');
     $('lb-pro').classList.toggle('on', pro);
     $('lb-pro-note').hidden = !pro || msg.isHost; // (the host has the button that says so)
-    $('lb-pro-note').textContent = `${tl('PRO MATCH')}: ${tl('A bigger pitch with the real rules: the ball can go out for throw-ins, corners and goal kicks.')}`;
+    $('lb-pro-note').textContent = `${tl('PRO MATCH')}: ${tl('The real rules: a 12-second shot clock, out of bounds, and fouls that give free throws.')}`;
   },
   hideLobby() { $('lobby').hidden = true; },
 
@@ -866,7 +866,7 @@ const UI = {
   // ---- match intro card ----
   showIntro(m, startsIn) {
     const cup = m.mode === 'cup' ? Cup.state() : null;
-    $('intro-stage').textContent = m.pens ? (m.pens.fk ? tl('FREE KICKS · 5 EACH, OVER OR ROUND THE WALL') : tl('PENALTY SHOOTOUT · 5 KICKS EACH')) : m.net ? (m.ranked ? tl('RANKED · 1v1') : m.fcup ? tl('FRIEND CUP · {0}', [CUP_ROUND_NAMES[m.fcup.of - 1 - m.fcup.round] || tl('CUP')]) : m.wc !== null && m.wc !== undefined ? (m.cupKind === 'cc' ? tl('CHAMPIONS CUP · {0} · {1}', [WC_ROUNDS[m.wc], m.format]) : tl('WORLD CUP · {0} · {1}', [WC_ROUNDS[m.wc], m.format])) : tl('ONLINE · {0}', [m.rules ? `${tl('PRO MATCH')} ${m.format}` : m.format])) : m.training ? tl('TRAINING · NO CLOCK') : (cup ? (Cup.champions() ? tl('CHAMPIONS CUP · {0}', [Cup.ROUNDS[cup.round]]) : tl('CUP · {0}', [Cup.ROUNDS[cup.round]])) : m.rules ? tl('PRO MATCH') : tl('QUICK MATCH')) + ` · ${m.format}`;
+    $('intro-stage').textContent = m.pens ? (m.pens.fk ? tl('FREE THROWS · 5 EACH, TAKE TURNS') : tl('3-POINT CONTEST · 5 SHOTS EACH')) : m.net ? (m.ranked ? tl('RANKED · 1v1') : m.fcup ? tl('FRIEND CUP · {0}', [CUP_ROUND_NAMES[m.fcup.of - 1 - m.fcup.round] || tl('CUP')]) : m.wc !== null && m.wc !== undefined ? (m.cupKind === 'cc' ? tl('CHAMPIONS CUP · {0} · {1}', [WC_ROUNDS[m.wc], m.format]) : tl('WORLD CUP · {0} · {1}', [WC_ROUNDS[m.wc], m.format])) : tl('ONLINE · {0}', [m.rules ? `${tl('PRO MATCH')} ${m.format}` : m.format])) : m.training ? tl('TRAINING · NO CLOCK') : (cup ? (Cup.champions() ? tl('CHAMPIONS CUP · {0}', [Cup.ROUNDS[cup.round]]) : tl('CUP · {0}', [Cup.ROUNDS[cup.round]])) : m.rules ? tl('PRO MATCH') : tl('QUICK MATCH')) + ` · ${m.format}`;
     $('intro-go').hidden = !!m.net;
     // what this match pays on top: the weekend, or the win streak a win here would make
     const ib = $('intro-bonus'), streak = Save.data.career.streak || 0, next = Bonus.of(streak + 1);
@@ -965,6 +965,9 @@ const UI = {
     const cd = has ? skillCd : slideCd;
     const btn = $('btn-skill');
     if (this._mode !== has) { btn.classList.toggle('slide', !has); this._mode = has; }
+    // SHOOT jumps when the ball isn't yours or your side's: a block, a rebound
+    const jumpy = !m.ball.owner || m.ball.owner.team !== h.team;
+    if (this._jumpy !== jumpy) { $('btn-shoot').classList.toggle('jump', jumpy); this._jumpy = jumpy; }
     if (this._cd !== cd) { btn.style.setProperty('--cd', cd); btn.classList.toggle('ready', cd === 0); this._cd = cd; }
     const st = Math.round(h.stamina * 100);
     if (this._st !== st || this._tired !== h.exhausted) {
@@ -1109,10 +1112,11 @@ const UI = {
     d.goals = (d.goals || 0) + m.human.stats.goals;
     if (r.outcome === 'win') d.wins++; else if (r.outcome === 'draw') d.draws = (d.draws || 0) + 1; else d.losses = (d.losses || 0) + 1;
     const hs = m.human.stats, c = d.career;
-    c.assists += hs.assists; c.tackles += hs.tackles; c.skills += hs.skills; c.dodges += hs.dodges || 0;
+    // (goals are points: a 15-point game is the "hat-trick", holding a side under 10 the "clean sheet")
+    c.assists += hs.assists; c.tackles += hs.steals || 0; c.skills += hs.skills; c.dodges += hs.dodges || 0;
     c.passes += hs.passes; c.shots += hs.shots; c.powerGoals += m.flags.powerGoals || 0;
-    if (hs.goals >= 3) c.hattricks++;
-    if (m.score.red === 0 && !pens) c.cleanSheets++;
+    if (hs.goals >= 15) c.hattricks++;
+    if (m.score.red < 10 && !pens && !m.training) c.cleanSheets++;
     c.formats[m.format] = (c.formats[m.format] || 0) + 1;
     c.streak = r.outcome === 'win' ? c.streak + 1 : 0;
     c.bestStreak = Math.max(c.bestStreak, c.streak);
@@ -1144,27 +1148,27 @@ const UI = {
     const pt = m.poss.blue + m.poss.red, pb = pt ? Math.round((m.poss.blue / pt) * 100) : 50;
     const pk = pens ? m.pens.kicks : null;
     const rows = pens ? [
-      [tl('SCORED'), m.score.blue, m.score.red],
-      [tl('MISSED'), pk.blue.length - m.score.blue - m.pens.theirSaves, pk.red.length - m.score.red - m.pens.saves],
-      [tl('SAVES'), m.pens.saves, m.pens.theirSaves],
-      [tl('KICKS'), pk.blue.length, pk.red.length],
+      [tl('MADE'), m.score.blue, m.score.red],
+      [tl('MISSED'), pk.blue.length - m.score.blue, pk.red.length - m.score.red],
+      [tl('SWISHES'), m.pens.swishes.blue, m.pens.swishes.red],
+      [tl('SHOTS'), pk.blue.length, pk.red.length],
     ] : [
-      [tl('GOALS'), m.score.blue, m.score.red],
+      [tl('POINTS'), m.score.blue, m.score.red],
       [tl('POSS %'), pb, 100 - pb],
       [tl('SHOTS'), m.stats.blue.shots, m.stats.red.shots],
-      [tl('PASSES'), m.stats.blue.passes, m.stats.red.passes],
-      [tl('TACKLES'), m.stats.blue.tackles || 0, m.stats.red.tackles || 0],
-      [tl('SAVES'), m.stats.blue.saves, m.stats.red.saves],
+      [tl('STEALS'), m.stats.blue.steals || 0, m.stats.red.steals || 0],
+      [tl('REBOUNDS'), m.stats.blue.rebounds || 0, m.stats.red.rebounds || 0],
+      [tl('BLOCKS'), m.stats.blue.blocks || 0, m.stats.red.blocks || 0],
     ];
     $('r-stats').innerHTML = rows.map(([k, a, b]) =>
       `<div class="r-row"><b class="${a > b ? 'lead' : ''}">${a}</b><span>${k}</span><b class="${b > a ? 'lead' : ''}">${b}</b></div>`).join('');
     const h = m.human.stats;
-    $('r-you').innerHTML = pens ? `<span><b>${h.goals}</b> ${tl('of {0} penalties scored', [h.shots])}</span><span><b>${m.pens.saves}</b> ${tl('saves')}</span>`
-      : `<span><b>${h.goals}</b> ${tl('goals')}</span><span><b>${h.shots}</b> ${tl('shots')}</span><span><b>${h.tackles}</b> ${tl('tackles')}</span><span><b>${h.skills}</b> ${tl('skills')}</span>`;
+    $('r-you').innerHTML = pens ? `<span><b>${h.goals}</b> ${tl('of {0} shots made', [h.shots])}</span><span><b>${m.pens.swishes.blue}</b> ${tl('swishes')}</span>`
+      : `<span><b>${h.goals}</b> ${tl('points')}</span><span><b>${h.rebounds || 0}</b> ${tl('rebounds')}</span><span><b>${h.assists}</b> ${tl('assists')}</span><span><b>${h.steals || 0}</b> ${tl('steals')}</span>`;
     const mvp = r.mvp;
     const mvpName = mvp.isHuman ? tl('YOU') : `${TEAMS[mvp.team].name} #${mvp.number}${mvp.isKeeper ? ' ' + tl('(GK)') : ''}`;
     const s = mvp.stats;
-    const line = mvp.isKeeper ? tl('{0} saves', [s.saves]) : pens ? tl('{0} penalties · {1} saves', [s.goals, m.pens.saves]) : tl('{0} G · {1} A · {2} tackles', [s.goals, s.assists, s.tackles]);
+    const line = mvp.isKeeper ? tl('{0} saves', [s.saves]) : pens ? tl('{0} of {1} made', [s.goals, s.shots]) : tl('{0} PTS · {1} AST · {2} STL', [s.goals, s.assists, s.steals || 0]);
     $('r-mvp').innerHTML = `<canvas id="r-mvp-canvas" width="84" height="84"></canvas><div><small>${tl('MVP')}</small><strong>${mvpName}</strong><em>${line}</em></div>`;
     this.portrait($('r-mvp-canvas'), mvp.look, mvp.team, mvp.isKeeper, mvp.number);
     $('r-challenges').innerHTML = this.challengeList(m) + this.wagesLine(pay, pens);
@@ -1220,20 +1224,21 @@ const UI = {
     const mine = msg.score[side], theirs = msg.score[other];
     const outcome = msg.outcome;
     Game.state = 'results';
-    const me = msg.players[msg.you] || { stats: {} }, st = Object.assign({ goals: 0, assists: 0, tackles: 0, skills: 0, shots: 0, passes: 0, dodges: 0 }, me.stats);
+    const me = msg.players[msg.you] || { stats: {} }, st = Object.assign({ goals: 0, assists: 0, tackles: 0, steals: 0, blocks: 0, rebounds: 0, skills: 0, shots: 0, passes: 0, dodges: 0 }, me.stats);
     const readyBefore = new Set(Achievements.readyList().map((a) => a.id));
     const levelBefore = Levels.info(d.xp || 0).level;
-    const xp = 50 + st.goals * 25 + st.assists * 15 + st.tackles * 6 + st.skills * 2 + (st.dodges || 0) * 5 + (outcome === 'win' ? 70 : outcome === 'draw' ? 30 : 0);
-    const coins = 30 + mine * 10 + st.goals * 10 + (outcome === 'win' ? 70 : outcome === 'draw' ? 25 : 0);
+    // (points, not goals: a basket is worth about a third of what a goal paid)
+    const xp = 50 + st.goals * 8 + st.assists * 12 + st.steals * 8 + st.blocks * 8 + st.rebounds * 4 + st.skills * 2 + (st.dodges || 0) * 5 + (outcome === 'win' ? 70 : outcome === 'draw' ? 30 : 0);
+    const coins = 30 + Math.round(mine * 3.4) + Math.round(st.goals * 3.4) + (outcome === 'win' ? 70 : outcome === 'draw' ? 25 : 0);
     d.xp = (d.xp || 0) + xp; d.coins += coins; d.matches++;
     this.passAfterMatch(xp);
     d.goals = (d.goals || 0) + st.goals;
     if (outcome === 'win') d.wins++; else if (outcome === 'draw') d.draws = (d.draws || 0) + 1; else d.losses = (d.losses || 0) + 1;
     const c = d.career;
-    c.assists += st.assists; c.tackles += st.tackles; c.skills += st.skills; c.dodges += st.dodges || 0;
+    c.assists += st.assists; c.tackles += st.steals; c.skills += st.skills; c.dodges += st.dodges || 0;
     c.passes += st.passes; c.shots += st.shots; c.powerGoals += m.flags.powerGoals || 0;
-    if (st.goals >= 3) c.hattricks++;
-    if (theirs === 0) c.cleanSheets++;
+    if (st.goals >= 15) c.hattricks++;
+    if (theirs < 10) c.cleanSheets++;
     c.formats[msg.format] = (c.formats[msg.format] || 0) + 1;
     if (!msg.coop) { c.online = (c.online || 0) + 1; if (outcome === 'win') c.onlineWins = (c.onlineWins || 0) + 1; }
     c.streak = outcome === 'win' ? c.streak + 1 : 0;
@@ -1281,16 +1286,17 @@ const UI = {
     if (msg.forfeit && outcome === 'win') setTimeout(() => { if (Game.state === 'results') this.toast(tl('THE OTHER TEAM LEFT · YOU WIN')); }, 400);
     const S = msg.stats, poss = mirror ? 100 - msg.poss : msg.poss;
     const rows = [
-      [tl('GOALS'), mine, theirs], [tl('POSS %'), poss, 100 - poss],
-      [tl('SHOTS'), S[side].shots || 0, S[other].shots || 0], [tl('PASSES'), S[side].passes || 0, S[other].passes || 0],
-      [tl('TACKLES'), S[side].tackles || 0, S[other].tackles || 0], [tl('SAVES'), S[side].saves || 0, S[other].saves || 0],
+      [tl('POINTS'), mine, theirs], [tl('POSS %'), poss, 100 - poss],
+      [tl('SHOTS'), S[side].shots || 0, S[other].shots || 0],
+      [tl('STEALS'), S[side].steals || 0, S[other].steals || 0], [tl('REBOUNDS'), S[side].rebounds || 0, S[other].rebounds || 0],
+      [tl('BLOCKS'), S[side].blocks || 0, S[other].blocks || 0],
     ];
     $('r-stats').innerHTML = rows.map(([k, a, b]) => `<div class="r-row"><b class="${a > b ? 'lead' : ''}">${a}</b><span>${k}</span><b class="${b > a ? 'lead' : ''}">${b}</b></div>`).join('');
-    $('r-you').innerHTML = `<span><b>${st.goals}</b> ${tl('goals')}</span><span><b>${st.assists}</b> ${tl('assists')}</span><span><b>${st.tackles}</b> ${tl('tackles')}</span><span><b>${st.skills}</b> ${tl('skills')}</span>`;
+    $('r-you').innerHTML = `<span><b>${st.goals}</b> ${tl('points')}</span><span><b>${st.rebounds}</b> ${tl('rebounds')}</span><span><b>${st.assists}</b> ${tl('assists')}</span><span><b>${st.steals}</b> ${tl('steals')}</span>`;
     const mvp = msg.mvp, mvpPlayer = m.players[mvp.index];
     const mvpName = mvp.index === msg.you ? tl('YOU') : mvp.keeper ? tl('{0} GK', [(mvp.team === side ? TEAMS.blue : TEAMS.red).name]) : mvp.name;
     const ms = mvp.stats || {};
-    $('r-mvp').innerHTML = `<canvas id="r-mvp-canvas" width="84" height="84"></canvas><div><small>${tl('MVP')}</small><strong>${mvpName}</strong><em>${mvp.keeper ? tl('{0} saves', [ms.saves || 0]) : tl('{0} G · {1} A · {2} tackles', [ms.goals || 0, ms.assists || 0, ms.tackles || 0])}</em></div>`;
+    $('r-mvp').innerHTML = `<canvas id="r-mvp-canvas" width="84" height="84"></canvas><div><small>${tl('MVP')}</small><strong>${mvpName}</strong><em>${mvp.keeper ? tl('{0} saves', [ms.saves || 0]) : tl('{0} PTS · {1} AST · {2} STL', [ms.goals || 0, ms.assists || 0, ms.steals || 0])}</em></div>`;
     if (mvpPlayer) this.portrait($('r-mvp-canvas'), mvpPlayer.look, mvpPlayer.team, mvpPlayer.isKeeper, mvpPlayer.number);
     const club = Clubs.mine();
     const lg = msg.league;
@@ -1380,7 +1386,7 @@ const UI = {
     if (!Clubs.clubMode()) return '';
     if (!pay) return `<li class="wages over"><i></i><span>${tl('CONTRACT OVER · SIGN A NEW OFFER TO GET PAID')}</span></li>`;
     const fk = !!(Game.match && Game.match.pens && Game.match.pens.fk);
-    const what = pens ? (fk ? tl('WAGES · FREE KICKS {0} × {1}', [pay.goals, pay.goalRate]) : tl('WAGES · PENALTIES {0} × {1}', [pay.goals, pay.goalRate])) : tl('WAGES · GOALS {0} × {1} · ASSISTS {2} × {3}', [pay.goals, pay.goalRate, pay.assists, pay.assistRate]);
+    const what = pens ? (fk ? tl('WAGES · FREE THROWS {0} × {1}', [pay.goals, pay.goalRate]) : tl('WAGES · THREES {0} × {1}', [pay.goals, pay.goalRate])) : tl('WAGES · POINTS {0} × {1} · ASSISTS {2} × {3}', [pay.goals, pay.goalRate, pay.assists, pay.assistRate]);
     return `<li class="wages ${pay.coins ? 'done' : ''}"><i></i><span>${what}</span><b><span class="coin"></span>${pay.coins}</b></li>`;
   },
 
@@ -1414,7 +1420,7 @@ const Install = {
     window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); this.event = e; this.refresh(); });
     window.addEventListener('appinstalled', () => {
       this.event = null; this.refresh();
-      UI.toast(tl('INSTALLED! LOOK FOR MINI STRIKERS ON YOUR HOME SCREEN'));
+      UI.toast(tl('INSTALLED! LOOK FOR MINI DUNKERS ON YOUR HOME SCREEN'));
     });
     // Inside a store app the game's files are the app's own: there is no offline copy to keep and
     // no newer build to reload for (a new version arrives as an app update).
@@ -1516,7 +1522,7 @@ const Install = {
     }
     // no API here: show where the button they need actually is
     $('install-how').innerHTML = this.ios()
-      ? `<b>${tl('1. Tap the Share button')}</b>${tl('the square with an arrow coming out of it, at the bottom of Safari')}<b>${tl('2. Scroll down and tap "Add to Home Screen"')}</b><b>${tl('3. Tap Add')}</b>${tl('Mini Strikers lands on your home screen and opens fullscreen, like any other game.')}`
+      ? `<b>${tl('1. Tap the Share button')}</b>${tl('the square with an arrow coming out of it, at the bottom of Safari')}<b>${tl('2. Scroll down and tap "Add to Home Screen"')}</b><b>${tl('3. Tap Add')}</b>${tl('Mini Dunkers lands on your home screen and opens fullscreen, like any other game.')}`
       : `<b>${tl('Open your browser menu')}</b>${tl('the three dots in the corner')}<b>${tl('Tap "Install app" or "Add to Home screen"')}</b>${tl('then confirm. The game opens fullscreen with no browser around it.')}`;
     $('install-steps').hidden = false;
   },

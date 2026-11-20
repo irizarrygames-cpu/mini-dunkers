@@ -142,48 +142,12 @@ const Render = {
     g.rect(-E - 48, topBoard - boardH, W + 2 * E + 96, (H + M) * T + 26 - (topBoard - boardH));
     g.fill();
 
-    // grass floor of the arena (polygon incl. goal pockets)
-    const poly = [
-      [-E + C, -M], [W + E - C, -M], [W + E, -M + C], [W + E, GOAL_Y1], [W + CFG.GOAL_D, GOAL_Y1], [W + CFG.GOAL_D, GOAL_Y2], [W + E, GOAL_Y2],
-      [W + E, H + M - C], [W + E - C, H + M], [-E + C, H + M], [-E, H + M - C], [-E, GOAL_Y2], [-CFG.GOAL_D, GOAL_Y2], [-CFG.GOAL_D, GOAL_Y1], [-E, GOAL_Y1], [-E, -M + C],
-    ];
+    // the floor inside the fence: the court in its own colours, the strip round it a shade darker
+    const poly = [[-E + C, -M], [W + E - C, -M], [W + E, -M + C], [W + E, H + M - C], [W + E - C, H + M], [-E + C, H + M], [-E, H + M - C], [-E, -M + C]];
     g.save();
     g.beginPath(); poly.forEach(([x, y], i) => (i ? g.lineTo(x, y * T) : g.moveTo(x, y * T))); g.closePath();
     g.clip();
-    const cols = st.grass, pattern = st.pattern || 'checks';
-    if (pattern === 'stripes' || pattern === 'hstripes') {
-      for (let i = -4; i < 50; i++) {
-        g.fillStyle = cols[(i + 40) % 2][0];
-        if (pattern === 'stripes') g.fillRect(i * 80, -200, 80.5, (H + 400) * T);
-        else g.fillRect(-300, i * 70 * T - 160, W + 600, 70 * T + 0.5);
-      }
-    } else if (pattern === 'diamond') {
-      g.fillStyle = cols[0][0]; g.fillRect(-300, -200, W + 600, (H + 400) * T);
-      g.fillStyle = cols[1][0];
-      for (let i = -3; i < Math.ceil((W + 300) / 100); i++) {
-        for (let j = -3; j < Math.ceil((H + 300) / 100); j++) {
-          const cx = i * 100, cy = j * 100;
-          g.beginPath(); g.moveTo(cx, (cy - 50) * T); g.lineTo(cx + 50, cy * T); g.lineTo(cx, (cy + 50) * T); g.lineTo(cx - 50, cy * T); g.closePath(); g.fill();
-        }
-      }
-    } else {
-      for (let i = -3; i < Math.ceil((W + 200) / 75); i++) {
-        for (let j = -2; j < Math.ceil((H + 160) / 70); j++) {
-          g.fillStyle = cols[(i + 20) % 2][(j + 20) % 2];
-          g.fillRect(i * 75, j * 70 * T, 75.5, 70 * T + 0.5);
-        }
-      }
-    }
-    g.strokeStyle = st.tuft; g.lineWidth = 2; g.lineCap = 'round';
-    for (let i = 0; i < 560; i++) {
-      const x = rng() * (W + 40) - 20, y = (rng() * (H + 40) - 20) * T;
-      if (pattern === 'grid') continue;
-      g.beginPath(); g.moveTo(x - 3, y - 3); g.lineTo(x, y); g.lineTo(x + 3, y - 4); g.stroke();
-    }
-    // goal pocket floors
-    g.fillStyle = 'rgba(20, 80, 20, 0.18)';
-    g.fillRect(W, GOAL_Y1 * T, CFG.GOAL_D, CFG.GOAL_W * T);
-    g.fillRect(-CFG.GOAL_D, GOAL_Y1 * T, CFG.GOAL_D, CFG.GOAL_W * T);
+    this.drawCourt(g, st, rng);
     this.pitchDecor(g, st, rng);
     g.restore();
 
@@ -308,7 +272,6 @@ const Render = {
       for (let x = 0; x <= W; x += 100) { g.beginPath(); g.moveTo(x, -M * T); g.lineTo(x, (H + M) * T); g.stroke(); }
       for (let y = 0; y <= H; y += 100) { g.beginPath(); g.moveTo(-CFG.END_M, y * T); g.lineTo(W + CFG.END_M, y * T); g.stroke(); }
     }
-    for (const x of [26, W - 26]) oval(x, H / 2, 60, 120, st.snowy ? 'rgba(120, 150, 110, 0.25)' : 'rgba(170, 140, 70, 0.16)');
     if (st.lights) for (const [x, y] of [[0.25, 0.3], [0.75, 0.3], [0.25, 0.72], [0.75, 0.72]]) oval(W * x, H * y, 560, 380, 'rgba(255, 255, 225, 0.06)');
     if (st.kind === 'rain') {
       for (let i = 0; i < 16; i++) {
@@ -358,7 +321,7 @@ const Render = {
     const front = topBoard - boardH;
     g.fillStyle = '#c9d2de'; g.strokeStyle = OUTLINE; g.lineWidth = 2;
     g.beginPath(); g.rect(X0, front - 5, X1 - X0, 4); g.fill(); g.stroke();
-    const words = [st.chant || tl("LET'S GO!"), TEAMS.blue.name, st.name || tl('GOOOAL!'), TEAMS.red.name];
+    const words = [st.chant || tl("LET'S GO!"), TEAMS.blue.name, st.name || tl('BUCKETS!'), TEAMS.red.name];
     g.font = '900 15px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
     for (let i = 0; 150 + i * 360 < W; i++) {
       const x = 150 + i * 360, team = x < W / 2 ? TEAMS.blue : TEAMS.red, w = 112;
@@ -624,62 +587,106 @@ const Render = {
   },
 
   // Pitch markings are drawn live with the perspective so they stay crisp at any zoom.
-  drawPitchLive(ctx) {
-    const W = CFG.FIELD_W, H = CFG.FIELD_H;
-    ctx.strokeStyle = '#ffffff'; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    ctx.lineWidth = Math.max(2, 5 * this.S);
-    const pt = (x, y) => [this.sx(x, y), this.sy(y, 0)];
-    const poly = (pts, close) => {
-      ctx.beginPath();
-      pts.forEach(([x, y], i) => { const [a, c] = pt(x, y); if (i) ctx.lineTo(a, c); else ctx.moveTo(a, c); });
-      if (close) ctx.closePath();
-      ctx.stroke();
-    };
-    const rect = (x, y, w, h) => poly([[x, y], [x + w, y], [x + w, y + h], [x, y + h]], true);
-    const arc = (cx, cy, r, a0, a1, n) => { const pts = []; for (let i = 0; i <= n; i++) { const a = a0 + ((a1 - a0) * i) / n; pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); } poly(pts, false); };
-    rect(0, 0, W, H);
-    poly([[W / 2, 0], [W / 2, H]]);
-    arc(W / 2, H / 2, CFG.CIRCLE_R, 0, Math.PI * 2, 56);
-    const cy = H / 2, spot = CFG.BOX_D * 0.71, arcR = CFG.BOX_D * 0.47, aa = Math.acos((CFG.BOX_D - spot) / arcR);
-    ctx.fillStyle = '#ffffff';
-    for (const [x, dir] of [[0, 1], [W, -1]]) {
-      rect(dir > 0 ? 0 : W - CFG.BOX_D, cy - CFG.BOX_W / 2, CFG.BOX_D, CFG.BOX_W);
-      rect(dir > 0 ? 0 : W - CFG.SMALL_D, cy - CFG.SMALL_W / 2, CFG.SMALL_D, CFG.SMALL_W);
-      const px = x + dir * spot;
-      arc(px, cy, arcR, dir > 0 ? -aa : Math.PI - aa, dir > 0 ? aa : Math.PI + aa, 18);
-      const [sx0, sy0] = pt(px, cy);
-      ctx.beginPath(); ctx.ellipse(sx0, sy0, 5 * this.S, 4 * this.S, 0, 0, Math.PI * 2); ctx.fill();
-      if (dir > 0) { arc(0, 0, 30, 0, Math.PI / 2, 8); arc(0, H, 30, -Math.PI / 2, 0, 8); }
-      else { arc(W, 0, 30, Math.PI / 2, Math.PI, 8); arc(W, H, 30, Math.PI, Math.PI * 1.5, 8); }
+  // The court's surface: polished wood (three shades) or a painted outdoor court, picked for each
+  // ground and kept. The keys are painted in the colours of the side defending them.
+  COURT_STYLES: [
+    { wood: true, floor: '#e9b87b', plank: '#dba468', apron: '#c68a4e' },
+    { wood: true, floor: '#d6995b', plank: '#c78a4e', apron: '#a96f3b' },
+    { wood: true, floor: '#b9794b', plank: '#aa6b3f', apron: '#8b5631' },
+    { wood: false, floor: '#2f6fd6', apron: '#1f4fa6' },
+    { wood: false, floor: '#2f9a5a', apron: '#1f7743' },
+    { wood: false, floor: '#cf5a3a', apron: '#9e3f27' },
+    { wood: false, floor: '#6a52cf', apron: '#4b38a3' },
+  ],
+  courtStyle(st) {
+    const key = String((st && (st.city || st.name || st.id)) || 'court');
+    let h = 0;
+    for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+    const pick = st && st.kind === 'neon' ? 6 : st && st.kind === 'night' ? 2 : h % this.COURT_STYLES.length;
+    return this.COURT_STYLES[pick];
+  },
+  drawCourt(g, st, rng) {
+    const T = CFG.TILT, W = CFG.FIELD_W, H = CFG.FIELD_H, E = CFG.END_M, M = CFG.SIDE_M;
+    const cs = this.courtStyle(st);
+    g.fillStyle = cs.apron; g.fillRect(-E - 60, (-M - 60) * T, W + 2 * E + 120, (H + 2 * M + 120) * T);
+    g.fillStyle = cs.floor; g.fillRect(0, 0, W, H * T);
+    if (cs.wood) {
+      // planks along the court, their joins staggered
+      g.strokeStyle = cs.plank; g.lineWidth = 1.4;
+      for (let y = 0, row = 0; y <= H; y += 22, row++) {
+        g.beginPath(); g.moveTo(0, y * T); g.lineTo(W, y * T); g.stroke();
+        for (let x = (row % 3) * 70; x < W; x += 210 + ((row * 37) % 60)) { g.beginPath(); g.moveTo(x, y * T); g.lineTo(x, (y + 22) * T); g.stroke(); }
+      }
+      g.fillStyle = 'rgba(255, 255, 255, 0.05)';
+      for (let i = 0; i < 40; i++) g.fillRect(rng() * W, rng() * H * T, 60 + rng() * 120, 3);
+    } else {
+      // a painted court: a slightly lighter centre, specks in the paint
+      g.fillStyle = 'rgba(255, 255, 255, 0.05)'; g.fillRect(CFG.HOOP_IN * 2.4, 0, W - CFG.HOOP_IN * 4.8, H * T);
+      g.fillStyle = 'rgba(0, 0, 0, 0.05)';
+      for (let i = 0; i < 260; i++) g.fillRect(rng() * W, rng() * H * T, 2, 2);
     }
-    const [cx0, cy0] = pt(W / 2, H / 2);
-    ctx.beginPath(); ctx.ellipse(cx0, cy0, 5 * this.S, 4 * this.S, 0, 0, Math.PI * 2); ctx.fill();
+    // the keys, in the colours of whoever defends that end, and the centre circle
+    for (const [x0, team] of [[0, 'blue'], [W - CFG.KEY_D, 'red']]) {
+      g.fillStyle = TEAMS[team].jersey; g.globalAlpha = 0.62;
+      g.fillRect(x0, (H / 2 - CFG.KEY_W / 2) * T, CFG.KEY_D, CFG.KEY_W * T);
+      g.globalAlpha = 1;
+    }
+    g.fillStyle = 'rgba(255, 255, 255, 0.16)';
+    g.beginPath(); g.ellipse(W / 2, (H / 2) * T, CFG.CIRCLE_R, CFG.CIRCLE_R * T, 0, 0, Math.PI * 2); g.fill();
+  },
+
+  // the court's lines, every frame (so they stay sharp at any zoom)
+  courtLines(add) {
+    const W = CFG.FIELD_W, H = CFG.FIELD_H, cy = H / 2;
+    add.rect(0, 0, W, H);
+    add.line([[W / 2, 0], [W / 2, H]]);
+    add.arc(W / 2, cy, CFG.CIRCLE_R, 0, Math.PI * 2, 48);
+    add.arc(W / 2, cy, CFG.CIRCLE_R * 0.38, 0, Math.PI * 2, 24);
+    const corner = cy - CFG.THREE_SIDE, R = CFG.THREE_R, meet = Math.sqrt(Math.max(0, R * R - corner * corner)), aa = Math.atan2(corner, meet);
+    for (const [base, dir] of [[0, 1], [W, -1]]) {
+      const hx = base + dir * CFG.HOOP_IN;
+      // the key and the free-throw circle
+      add.rect(dir > 0 ? 0 : W - CFG.KEY_D, cy - CFG.KEY_W / 2, CFG.KEY_D, CFG.KEY_W);
+      const ftx = base + dir * CFG.KEY_D;
+      add.arc(ftx, cy, CFG.FT_R, dir > 0 ? -Math.PI / 2 : Math.PI / 2, dir > 0 ? Math.PI / 2 : Math.PI * 1.5, 24);
+      add.arc(ftx, cy, CFG.FT_R, dir > 0 ? Math.PI / 2 : -Math.PI / 2, dir > 0 ? Math.PI * 1.5 : Math.PI / 2, 24, true);
+      // the 3-point line: straight in the corners, then the arc round the rim
+      add.line([[base, cy - corner], [hx + dir * meet, cy - corner]]);
+      add.line([[base, cy + corner], [hx + dir * meet, cy + corner]]);
+      add.arc(hx, cy, R, dir > 0 ? -aa : Math.PI - aa, dir > 0 ? aa : Math.PI + aa, 40);
+      // the little no-charge arc under the rim
+      add.arc(hx, cy, 62, dir > 0 ? -Math.PI / 2 : Math.PI / 2, dir > 0 ? Math.PI / 2 : Math.PI * 1.5, 16);
+    }
+  },
+  drawPitchLive(ctx) {
+    const pt = (x, y) => [this.sx(x, y), this.sy(y, 0)];
+    const pass = (color, width) => {
+      ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      const add = {
+        line: (pts) => { ctx.beginPath(); pts.forEach(([x, y], i) => { const [a, c] = pt(x, y); if (i) ctx.lineTo(a, c); else ctx.moveTo(a, c); }); ctx.stroke(); },
+        rect: (x, y, w, h) => add.line([[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]]),
+        arc: (cx, cy, r, a0, a1, n, dashed) => {
+          if (dashed) ctx.setLineDash([10 * this.S, 9 * this.S]);
+          const pts = []; for (let i = 0; i <= n; i++) { const a = a0 + ((a1 - a0) * i) / n; pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); }
+          add.line(pts);
+          if (dashed) ctx.setLineDash([]);
+        },
+      };
+      this.courtLines(add);
+    };
+    pass('rgba(22, 26, 51, 0.22)', Math.max(3, 7 * this.S));
+    pass('#ffffff', Math.max(2, 4.2 * this.S));
   },
 
   drawPitch(g) {
-    const T = CFG.TILT, W = CFG.FIELD_W, H = CFG.FIELD_H;
-    g.strokeStyle = '#ffffff'; g.lineWidth = 4; g.lineJoin = 'miter'; g.lineCap = 'butt';
-    const rect = (x, y, w, h) => { g.beginPath(); g.rect(x, y * T, w, h * T); g.stroke(); };
-    rect(0, 0, W, H);
-    g.beginPath(); g.moveTo(W / 2, 0); g.lineTo(W / 2, H * T); g.stroke();
-    g.beginPath(); g.ellipse(W / 2, (H / 2) * T, CFG.CIRCLE_R, CFG.CIRCLE_R * T, 0, 0, Math.PI * 2); g.stroke();
-    const cy = H / 2;
-    for (const [x, dir] of [[0, 1], [W, -1]]) {
-      rect(dir > 0 ? 0 : W - CFG.BOX_D, cy - CFG.BOX_W / 2, CFG.BOX_D, CFG.BOX_W);
-      rect(dir > 0 ? 0 : W - CFG.SMALL_D, cy - CFG.SMALL_W / 2, CFG.SMALL_D, CFG.SMALL_W);
-      const px = x + dir * 135;
-      g.fillStyle = '#ffffff';
-      g.beginPath(); g.ellipse(px, cy * T, 4, 4 * T, 0, 0, Math.PI * 2); g.fill();
-      g.beginPath();
-      g.ellipse(px, cy * T, 90, 90 * T, 0, dir > 0 ? -0.93 : Math.PI - 0.93, dir > 0 ? 0.93 : Math.PI + 0.93);
-      g.stroke();
-      for (const y of [0, H]) {
-        g.beginPath(); g.ellipse(x, y * T, 16, 16 * T, 0, 0, Math.PI * 2); g.stroke();
-      }
-    }
-    // re-fill beyond the touchline corners so the corner arcs only show inside
-    g.fillStyle = '#ffffff';
-    g.beginPath(); g.ellipse(W / 2, (H / 2) * T, 5, 5 * T, 0, 0, Math.PI * 2); g.fill();
+    const T = CFG.TILT;
+    g.strokeStyle = '#ffffff'; g.lineWidth = 4; g.lineJoin = 'round'; g.lineCap = 'round';
+    const add = {
+      line: (pts) => { g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y * T) : g.moveTo(x, y * T))); g.stroke(); },
+      rect: (x, y, w, h) => add.line([[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]]),
+      arc: (cx, cy, r, a0, a1, n) => { const pts = []; for (let i = 0; i <= n; i++) { const a = a0 + ((a1 - a0) * i) / n; pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); } add.line(pts); },
+    };
+    this.courtLines(add);
   },
 
   // ---------------- camera ----------------
@@ -833,52 +840,74 @@ const Render = {
     ctx.closePath(); ctx.fill(); ctx.stroke();
   },
 
-  goalPart(ctx, side, front, bulge) {
-    const S = this.S, x = side === 'right' ? CFG.FIELD_W : 0, dir = side === 'right' ? 1 : -1;
-    const D = CFG.GOAL_D, Hh = CFG.GOAL_H, Hb = CFG.GOAL_H * 0.76, bx = x + dir * (D + bulge * 26);
-    const P = (wx, wy, wz) => [this.sx(wx, wy), this.sy(wy, wz)];
-    const grid = (a, b, c, d, nu, nv) => {
+  // A hoop, in two halves so the ball can drop through between them: the back (the stand, the
+  // backboard, the far side of the rim and net) and the front (the near side of the net and rim).
+  // The backboard faces the camera, the way it reads best from up here; the rim and net hang in
+  // front of it at their real height. bulge: the net swinging after a basket; shake: the rim, hit.
+  hoopPart(ctx, side, front, bulge, shake, t) {
+    const W = CFG.FIELD_W, cy = CFG.FIELD_H / 2, dir = side === 'left' ? 1 : -1;
+    const hx = side === 'left' ? CFG.HOOP_IN : W - CFG.HOOP_IN, bx = side === 'left' ? CFG.BOARD_IN : W - CFG.BOARD_IN;
+    const standX = side === 'left' ? -CFG.END_M * 0.55 : W + CFG.END_M * 0.55;
+    const k = this.k(cy), P = (x, z) => [this.sx(x, cy), this.sy(cy, z)];
+    const jig = shake > 0 ? Math.sin(t * 70) * shake * 2.2 * k : 0;
+    const R = CFG.RIM_R * k, Rz = CFG.RIM_R * k * CFG.TILT;
+    const [rx, ry0] = P(hx, CFG.RIM_Z), ry = ry0 + jig;
+    // the net: from the rim down to a narrower ring, stretched and swinging after a basket
+    const drop = (36 + bulge * 16) * k, narrow = 0.62 - bulge * 0.18, sway = Math.sin(t * 16) * bulge * 4 * k;
+    const netLines = (from, to) => {
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)'; ctx.lineWidth = Math.max(1, 1.6 * k);
       ctx.beginPath();
-      for (let i = 0; i <= nu; i++) {
-        const u = i / nu;
-        const p1 = [lerp(a[0], b[0], u), lerp(a[1], b[1], u)], p2 = [lerp(d[0], c[0], u), lerp(d[1], c[1], u)];
-        ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]);
-      }
-      for (let j = 0; j <= nv; j++) {
-        const v = j / nv;
-        const p1 = [lerp(a[0], d[0], v), lerp(a[1], d[1], v)], p2 = [lerp(b[0], c[0], v), lerp(b[1], c[1], v)];
-        ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]);
+      for (let i = 0; i <= 10; i++) {
+        const a = from + ((to - from) * i) / 10;
+        ctx.moveTo(rx + Math.cos(a) * R, ry + Math.sin(a) * Rz);
+        ctx.lineTo(rx + sway + Math.cos(a) * R * narrow, ry + drop + Math.sin(a) * Rz * narrow);
       }
       ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(rx + sway, ry + drop * 0.55, R * (1 + narrow) / 2, Rz * (1 + narrow) / 2, 0, from, to); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(rx + sway, ry + drop, R * narrow, Rz * narrow, 0, from, to); ctx.stroke();
     };
-    const quad = (pts, alpha) => {
-      ctx.globalAlpha = alpha; ctx.fillStyle = '#ffffff';
-      ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath(); ctx.fill();
-      ctx.globalAlpha = 1;
+    const rimArc = (from, to) => {
+      ctx.strokeStyle = OUTLINE; ctx.lineWidth = Math.max(3, 6 * k);
+      ctx.beginPath(); ctx.ellipse(rx, ry, R, Rz, 0, from, to); ctx.stroke();
+      ctx.strokeStyle = '#ff6a1f'; ctx.lineWidth = Math.max(2, 3.6 * k);
+      ctx.beginPath(); ctx.ellipse(rx, ry, R, Rz, 0, from, to); ctx.stroke();
     };
-    const post = (a, b, w) => {
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = OUTLINE; ctx.lineWidth = (w + 3) * S;
-      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
-      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = w * S;
-      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
-    };
-    ctx.lineWidth = Math.max(1, 1.3 * S);
-    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
     if (!front) {
-      const a = P(bx, GOAL_Y1, 0), b = P(bx, GOAL_Y2, 0), c = P(bx, GOAL_Y2, Hb), d = P(bx, GOAL_Y1, Hb);
-      quad([a, b, c, d], 0.16); grid(a, b, c, d, 9, 3);
-      const e = P(x, GOAL_Y1, Hh), f2 = P(x, GOAL_Y2, Hh);
-      quad([e, f2, c, d], 0.12); grid(e, f2, c, d, 9, 2);
-      const s1 = P(x, GOAL_Y1, 0), s2 = P(bx, GOAL_Y1, 0);
-      quad([s1, s2, d, e], 0.12); grid(s1, s2, d, e, 3, 3);
-      post(d, c, 3.2);
-      post(P(x, GOAL_Y1, 0), P(x, GOAL_Y1, Hh), 5);
+      // the stand: a padded base behind the baseline, the pole, the arm out to the board
+      const [px0, py0] = P(standX, 0), [px1, py1] = P(standX, CFG.BOARD_Z1 - 18), [ax, ay] = P(bx, CFG.BOARD_Z0 + 34);
+      ctx.fillStyle = 'rgba(20, 16, 40, 0.25)';
+      ctx.beginPath(); ctx.ellipse(px0, py0 + 2 * k, 26 * k, 12 * k, 0, 0, Math.PI * 2); ctx.fill();
+      Sprites.rr(ctx, px0 - 18 * k, py0 - 22 * k, 36 * k, 26 * k, 6 * k); ctx.fillStyle = TEAMS[side === 'left' ? 'blue' : 'red'].board; ctx.fill();
+      ctx.lineWidth = 2.5 * k; ctx.strokeStyle = OUTLINE; ctx.stroke();
+      const beam = (x1, y1, x2, y2, w, col) => {
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = OUTLINE; ctx.lineWidth = (w + 3) * k; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        ctx.strokeStyle = col; ctx.lineWidth = w * k; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      };
+      beam(px0, py0 - 14 * k, px1, py1, 7, '#c9d2de');
+      beam(px1, py1 + 8 * k, ax, ay, 6, '#c9d2de');
+      // the backboard: glass with a white frame and the shooter's square over the rim
+      const [bcx, btop] = P(bx, CFG.BOARD_Z1), [, bbot] = P(bx, CFG.BOARD_Z0), hw = CFG.BOARD_W * 0.5 * k * 0.46;
+      ctx.fillStyle = 'rgba(214, 238, 255, 0.85)';
+      Sprites.rr(ctx, bcx - hw, btop, hw * 2, bbot - btop, 3 * k); ctx.fill();
+      ctx.lineWidth = 3 * k; ctx.strokeStyle = OUTLINE; ctx.stroke();
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.6 * k;
+      Sprites.rr(ctx, bcx - hw + 3 * k, btop + 3 * k, hw * 2 - 6 * k, bbot - btop - 6 * k, 2 * k); ctx.stroke();
+      const [, sq0] = P(bx, CFG.RIM_Z + 34), [, sq1] = P(bx, CFG.RIM_Z + 4);
+      ctx.strokeStyle = '#ff3a3f'; ctx.lineWidth = 2.4 * k;
+      ctx.strokeRect(bcx - hw * 0.42, sq0, hw * 0.84, sq1 - sq0);
+      // the bracket from the board to the rim
+      const [kx, ky] = P(hx - dir * CFG.RIM_R, CFG.RIM_Z);
+      ctx.strokeStyle = OUTLINE; ctx.lineWidth = 4 * k; ctx.beginPath(); ctx.moveTo(bcx, ky + jig); ctx.lineTo(kx, ky + jig); ctx.stroke();
+      // its shadow on the floor, and the far half of the net and rim
+      const [sx0, sy0] = P(hx, 0);
+      ctx.fillStyle = 'rgba(20, 16, 40, 0.16)';
+      ctx.beginPath(); ctx.ellipse(sx0, sy0, R * 1.1, Rz * 1.1, 0, 0, Math.PI * 2); ctx.fill();
+      netLines(Math.PI, Math.PI * 2);
+      rimArc(Math.PI, Math.PI * 2);
     } else {
-      const s1 = P(x, GOAL_Y2, 0), s2 = P(bx, GOAL_Y2, 0), c = P(bx, GOAL_Y2, Hb), e = P(x, GOAL_Y2, Hh);
-      quad([s1, s2, c, e], 0.12); grid(s1, s2, c, e, 3, 3);
-      post(P(x, GOAL_Y2, 0), P(x, GOAL_Y2, Hh), 5);
-      post(P(x, GOAL_Y1, Hh), P(x, GOAL_Y2, Hh), 5);
+      netLines(0, Math.PI);
+      rimArc(0, Math.PI);
     }
   },
 
@@ -913,24 +942,26 @@ const Render = {
       ctx.beginPath(); ctx.moveTo(x, y - 46 * fk); ctx.lineTo(x + 30 * fk, y - 40 * fk + wave); ctx.lineTo(x, y - 30 * fk); ctx.closePath(); ctx.fill(); ctx.stroke();
     }
 
-    // shadows
-    for (const p of m.players) Sprites.shadow(ctx, this.sx(p.x, p.y), this.sy(p.y, 0), this.k(p.y), p.r * 1.3, p.diveT > 0 || p.hopT > 0 ? 14 : 0);
+    // shadows (higher up, smaller)
+    for (const p of m.players) Sprites.shadow(ctx, this.sx(p.x, p.y), this.sy(p.y, 0), this.k(p.y), p.r * 1.3, (p.z || 0) + (p.hopT > 0 ? 10 : 0));
     Sprites.shadow(ctx, this.sx(b.x, b.y), this.sy(b.y, 0), this.k(b.y), CFG.BALL_R * 1.05, b.z);
 
     FX.drawGround(ctx, this);
     if (!m.demo) this.drawHumanRing(ctx, m, t);
 
-    // depth-sorted sprites
+    // depth-sorted sprites (who has the ball, for the dribbling and shooting poses)
+    for (const p of m.players) p.hasBall = b.owner === p;
     const list = [];
     for (const p of m.players) list.push({ y: p.y, p });
-    list.push({ y: b.y + 0.5, ball: true });
-    list.push({ y: GOAL_Y1, goal: 'right', front: false }, { y: GOAL_Y2 + 1, goal: 'right', front: true });
-    list.push({ y: GOAL_Y1, goal: 'left', front: false }, { y: GOAL_Y2 + 1, goal: 'left', front: true });
-    list.push({ y: -0.5, cx: 0 }, { y: -0.5, cx: CFG.FIELD_W }, { y: CFG.FIELD_H + 0.5, cx: 0 }, { y: CFG.FIELD_H + 0.5, cx: CFG.FIELD_W });
+    // (a ball being dribbled or held is drawn in front of whoever has it)
+    list.push({ y: b.owner ? b.owner.y + 0.5 : b.y + 0.25, ball: true });
+    const hy = CFG.FIELD_H / 2;
+    list.push({ y: hy - 2, hoop: 'right', front: false }, { y: hy + 2, hoop: 'right', front: true });
+    list.push({ y: hy - 2, hoop: 'left', front: false }, { y: hy + 2, hoop: 'left', front: true });
     list.sort((a, c) => a.y - c.y);
     for (const it of list) {
       if (it.p) {
-        const p = it.p, sx = this.sx(p.x, p.y), sy = this.sy(p.y, 0);
+        const p = it.p, sx = this.sx(p.x, p.y), sy = this.sy(p.y, p.z || 0);
         if (sx < -100 || sx > W + 100 || sy < -40 || sy > H + 160) continue;
         Sprites.player(ctx, p, sx, sy, this.k(p.y), t);
       } else if (it.ball) {
@@ -940,10 +971,8 @@ const Render = {
         if (fire) { Sprites.fireTrail(ctx, b, this, t); Sprites.fireball(ctx, bsx, bsy, CFG.BALL_R * this.k(b.y), b.vx, b.vy, t); }
         else Sprites.trail(ctx, b, this, t);
         Sprites.ball(ctx, b, bsx, bsy, this.k(b.y), t);
-      } else if (it.cx !== undefined) {
-        this.cornerFlag(ctx, it.cx, it.y, t);
       } else {
-        this.goalPart(ctx, it.goal, it.front, b.netBulge[it.goal]);
+        this.hoopPart(ctx, it.hoop, it.front, b.netBulge[it.hoop], b.rim ? b.rim[it.hoop] : 0, t);
       }
     }
     FX.drawAir(ctx, this);
@@ -954,6 +983,7 @@ const Render = {
       if (m.phase === 'restart' && typeof Rules !== 'undefined') Rules.drawAim(ctx, m, t);
       if (m.phase !== 'cele') this.drawSlideWarning(ctx, m, t);
       if (Save.data.settings.minimap && m.phase !== 'timeup' && this.zoom < 1.05) this.drawMinimap(ctx, m);
+      this.drawShotClock(ctx, m);
     }
 
     if (m.phase === 'replay') this.drawReplay(ctx, m, t);
@@ -981,9 +1011,9 @@ const Render = {
     const def = CELEBRATIONS.find((x) => x.id === c.kind);
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
-    this.chunkyText(ctx, tl('GOAL!'), x0, y, size, '#ffe14d');
+    this.chunkyText(ctx, tl('BUCKET!'), x0, y, size, '#ffe14d');
     ctx.font = `400 ${size}px "Lilita One", system-ui, sans-serif`;
-    const gw = ctx.measureText(tl('GOAL!') + ' ').width;
+    const gw = ctx.measureText(tl('BUCKET!') + ' ').width;
     this.chunkyText(ctx, who, x0 + gw, y, size * 0.8, s.team === 'blue' ? '#ffffff' : '#ffd0d3');
     if (def) {
       ctx.textAlign = 'right';
@@ -1146,27 +1176,19 @@ const Render = {
       ctx.beginPath(); ctx.ellipse(x, y, r2, r2 * CFG.TILT, 0, 0, Math.PI * 2); ctx.stroke();
       ctx.setLineDash([]);
     }
-    if (h.charging) {
-      const p = clamp(h.chargeT / CFG.CHARGE_FULL, 0, 1);
-      const level = h.chargeT < CFG.CHARGE_MED ? 0 : h.chargeT < CFG.CHARGE_STRONG ? 1 : 2;
-      const col = level === 2 ? (power ? Save.trail().a === '#ffffff' ? '#bff3ff' : Save.trail().a : '#46d9ff') : level === 1 ? '#ffe14d' : '#ffffff';
-      const r3 = R + 13 * S;
-      ctx.lineWidth = 7 * S; ctx.strokeStyle = 'rgba(22,26,51,0.45)';
-      ctx.beginPath(); ctx.ellipse(x, y, r3, r3 * CFG.TILT, 0, 0, Math.PI * 2); ctx.stroke();
-      ctx.lineWidth = 5.5 * S; ctx.strokeStyle = col; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.ellipse(x, y, r3, r3 * CFG.TILT, 0, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.02, p)); ctx.stroke();
-      ctx.lineCap = 'butt';
-      ctx.fillStyle = OUTLINE;
-      for (const th of [CFG.CHARGE_MED, CFG.CHARGE_STRONG]) {
-        const a = -Math.PI / 2 + (th / CFG.CHARGE_FULL) * Math.PI * 2;
-        ctx.beginPath(); ctx.arc(x + Math.cos(a) * r3, y + Math.sin(a) * r3 * CFG.TILT, 2.6 * S, 0, Math.PI * 2); ctx.fill();
-      }
-      if (level === 2) {
-        Sprites.glow(ctx, x, y - 20 * S, 46 * S, col, 0.35 + Math.sin(t * 20) * 0.08);
-        ctx.strokeStyle = col; ctx.lineWidth = 2 * S;
-        const r4 = r3 + (6 + Math.sin(t * 30) * 2) * S;
-        ctx.beginPath(); ctx.ellipse(x, y, r4, r4 * CFG.TILT, 0, 0, Math.PI * 2); ctx.stroke();
-      }
+    if (h.charging && m.ball.owner === h) {
+      // the shot meter: let go in the green at the top for a perfect release
+      const u = clamp(h.chargeT / CFG.METER_T, 0, 1.2), bw = 9 * S, bh = 62 * S;
+      const mx = x + 30 * S * (h.faceX >= 0 ? -1 : 1) - bw / 2, top = this.sy(h.y, 104) , mb = top + bh;
+      const zone = (lo, hi, col) => { ctx.fillStyle = col; ctx.fillRect(mx, mb - bh * Math.min(1, hi), bw, bh * (Math.min(1, hi) - lo)); };
+      ctx.fillStyle = 'rgba(22, 26, 51, 0.6)'; Sprites.rr(ctx, mx - 3 * S, top - 3 * S, bw + 6 * S, bh + 6 * S, 4 * S); ctx.fill();
+      zone(CFG.GOOD_LO, CFG.PERFECT_LO, 'rgba(255, 225, 77, 0.55)');
+      zone(CFG.PERFECT_LO, CFG.PERFECT_HI, power ? '#7dffb0' : 'rgba(63, 224, 122, 0.9)');
+      const tim = timingOf(u);
+      const col = tim === 'perfect' ? '#3fe07a' : tim === 'good' ? '#ffe14d' : '#ffffff';
+      ctx.fillStyle = col; ctx.fillRect(mx + 2 * S, mb - bh * Math.min(1, u), bw - 4 * S, bh * Math.min(1, u));
+      ctx.strokeStyle = OUTLINE; ctx.lineWidth = 2.5 * S; Sprites.rr(ctx, mx - 3 * S, top - 3 * S, bw + 6 * S, bh + 6 * S, 4 * S); ctx.stroke();
+      if (tim === 'perfect') Sprites.glow(ctx, mx + bw / 2, mb - bh * Math.min(1, u), 20 * S, '#3fe07a', 0.5);
     }
     if (h.passCharging && h.passChargeT > CFG.PASS_CHARGE_TAP) {
       const p = clamp((h.passChargeT - CFG.PASS_CHARGE_TAP) / (CFG.PASS_CHARGE_FULL - CFG.PASS_CHARGE_TAP), 0, 1);
@@ -1215,32 +1237,51 @@ const Render = {
     return box;
   },
 
+  // PRO MATCH: the shot clock, beside the scoreboard (red, and pulsing, in its last five seconds)
+  drawShotClock(ctx, m) {
+    if (!m.rules || m.shotClock === undefined || m.phase === 'over' || m.phase === 'timeup') return;
+    const e = document.getElementById('scoreboard'), r = e && e.getBoundingClientRect();
+    if (!r || !r.width) return;
+    const v = Math.max(0, Math.ceil(m.shotClock)), low = m.shotClock < 5 && m.phase === 'play';
+    // beside the scoreboard (under it is where the commentary goes on a narrow screen): to its right,
+    // or to its left when the map is in the way
+    const s = clamp(r.height * 0.42, 12, 20), w = s * 2.6, h = s * 1.5, y = r.top + (r.height - h) / 2;
+    const mb = this.boxes && this.boxes.minimap;
+    let x = r.right + 8;
+    if (x + w > this.W - 8 || (mb && x + w > mb[0] - 6 && y < mb[3] && y + h > mb[1])) x = r.left - 8 - w;
+    ctx.fillStyle = OUTLINE; Sprites.rr(ctx, x + 2, y + 3, w, h, h * 0.35); ctx.fill();
+    ctx.fillStyle = low ? '#ff3a3f' : '#161a33'; Sprites.rr(ctx, x, y, w, h, h * 0.35); ctx.fill();
+    ctx.strokeStyle = OUTLINE; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    this.chunkyText(ctx, String(v), x + w / 2, y + h / 2 + 1, s * (low ? 1 + Math.sin(performance.now() / 80) * 0.06 : 1), low ? '#ffffff' : '#ffe14d', 0);
+    (this.boxes || (this.boxes = {})).shotclock = [x, y, x + w, y + h];
+  },
+
   drawMinimap(ctx, m) {
     const W = this.W, H = this.H;
     const { mw, mh, x0, y0 } = this.minimapBox(W, H);
     this.boxes = { minimap: [x0 - 3, y0 - 3, x0 + mw + 3, y0 + mh + 3] };
     const sx = (x) => x0 + (x / CFG.FIELD_W) * mw, sy = (y) => y0 + (y / CFG.FIELD_H) * mh;
     ctx.globalAlpha = 0.9;
-    ctx.fillStyle = '#2f9a3c'; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 3;
+    ctx.fillStyle = this.courtStyle(Save.stadium()).floor; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.rect(x0 - 3, y0 - 3, mw + 6, mh + 6); ctx.fill(); ctx.stroke();
     ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.5;
     ctx.strokeRect(x0, y0, mw, mh);
     ctx.beginPath(); ctx.moveTo(x0 + mw / 2, y0); ctx.lineTo(x0 + mw / 2, y0 + mh); ctx.stroke();
     ctx.beginPath(); ctx.arc(x0 + mw / 2, y0 + mh / 2, mh * 0.13, 0, Math.PI * 2); ctx.stroke();
-    ctx.strokeRect(x0, sy(CFG.FIELD_H / 2 - CFG.BOX_W / 2), (CFG.BOX_D / CFG.FIELD_W) * mw, (CFG.BOX_W / CFG.FIELD_H) * mh);
-    ctx.strokeRect(x0 + mw - (CFG.BOX_D / CFG.FIELD_W) * mw, sy(CFG.FIELD_H / 2 - CFG.BOX_W / 2), (CFG.BOX_D / CFG.FIELD_W) * mw, (CFG.BOX_W / CFG.FIELD_H) * mh);
+    ctx.strokeRect(x0, sy(CFG.FIELD_H / 2 - CFG.KEY_W / 2), (CFG.KEY_D / CFG.FIELD_W) * mw, (CFG.KEY_W / CFG.FIELD_H) * mh);
+    ctx.strokeRect(x0 + mw - (CFG.KEY_D / CFG.FIELD_W) * mw, sy(CFG.FIELD_H / 2 - CFG.KEY_W / 2), (CFG.KEY_D / CFG.FIELD_W) * mw, (CFG.KEY_W / CFG.FIELD_H) * mh);
     ctx.globalAlpha = 1;
     // camera view box
     const halfW = W / 2 / this.S, halfH = H / 2 / this.S / CFG.TILT;
     ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 1;
     ctx.strokeRect(sx(this.cam.x - halfW), sy(this.cam.y / CFG.TILT - halfH), (halfW * 2 / CFG.FIELD_W) * mw, (halfH * 2 / CFG.FIELD_H) * mh);
     for (const p of m.players) {
-      const kit = p.isKeeper ? KEEPER_KITS[p.team] : TEAMS[p.team];
-      ctx.fillStyle = kit.jersey; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1.5;
+      ctx.fillStyle = TEAMS[p.team].jersey; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(clamp(sx(p.x), x0, x0 + mw), clamp(sy(p.y), y0, y0 + mh), p.isHuman ? 4.5 : 3.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       if (p.isHuman) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(sx(p.x), sy(p.y), 7, 0, Math.PI * 2); ctx.stroke(); }
     }
-    ctx.fillStyle = '#ffffff'; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1.5;
+    ctx.fillStyle = '#ff8a1f'; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(clamp(sx(m.ball.x), x0, x0 + mw), clamp(sy(m.ball.y), y0, y0 + mh), 3, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   },
 
@@ -1259,8 +1300,10 @@ const Render = {
     ctx.save(); ctx.rotate(a);
     ctx.beginPath(); ctx.moveTo(22, 0); ctx.lineTo(10, -9); ctx.lineTo(10, 9); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.restore();
+    ctx.fillStyle = '#ff8a1f';
     ctx.beginPath(); ctx.arc(0, 0, 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = OUTLINE; Sprites.pent(ctx, 0, 0, 4.5, 0);
+    ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(-11, 0); ctx.lineTo(11, 0); ctx.moveTo(0, -11); ctx.lineTo(0, 11); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-13, 0, 8, -0.9, 0.9); ctx.stroke(); ctx.beginPath(); ctx.arc(13, 0, 8, Math.PI - 0.9, Math.PI + 0.9); ctx.stroke();
     ctx.restore();
   },
 
