@@ -2474,3 +2474,6 @@ body.lefty #touch-zone { left: 50%; }
 }
 /* the How-to-Play scenes are on a wooden court */
 .tut-canvas { background: #e2ad6f; }
+
+/* the court behind the Customize stage and How to play (Mini Strikers had grass here) */
+.cust-view, .tut-canvas { background: #e9b87b; }
