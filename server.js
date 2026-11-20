@@ -17,7 +17,7 @@ const { forgetEverywhere } = require('./server/friends');
 const iapLib = require('./server/iap');
 
 const PORT = Number(process.argv[2] || process.env.PORT || 8450);
-const BUILD = 2;
+const BUILD = 3;
 const ROOT = __dirname;
 const DATA_FILE = process.env.MS_DATA_FILE || path.join(ROOT, 'data.json');
 const PBKDF2_ITERATIONS = 150000;
@@ -184,7 +184,12 @@ function sanitizeSave(incoming, previous, club) {
 // Coins handed to a player by the game's owner. Each gift is queued once at startup (its key is
 // remembered on the account, so restarts never repeat it) and delivered the next time that
 // player's game syncs: on sign-in / opening the game, or on a save from a game that knows gifts.
-const GIFTS = [];
+const GIFTS = [
+  // madeBefore: only an account that had this name before then gets it — if the name is free and
+  // someone signs up with it later, they get nothing.
+  // everything: every item in the game, and every season pass from now on, kept for good (ensureEverything)
+  { key: '2026-11-20-irizarry-10-trillion-everything', user: 'irizarry', coins: 10000000000000, everything: true, madeBefore: Date.UTC(2026, 10, 20, 18, 0) },
+];
 function queueGifts(quiet) {
   for (const g of GIFTS) {
     const u = getUser(g.user);

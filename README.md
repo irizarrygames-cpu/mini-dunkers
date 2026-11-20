@@ -54,6 +54,11 @@ it can share a database with Mini Strikers without touching it.
 
 After a deploy, `/api/health` reports `build` (bump `BUILD` in `server.js`) and `storage`.
 
+Gifts from the game's owner are `GIFTS` in `server.js` (the same as Mini Strikers): queued as the server
+starts and every five minutes, delivered when that player's game next syncs. `madeBefore` keeps a
+gift to the account that had the name by then; `everything` owns every item and every season pass as
+it starts, for good. 1.0.2 gives `irizarry` 10 trillion coins and everything (`node tools/giftscan.js`).
+
 ## The Android app
 
 `app/` builds the signed `.aab` for Google Play: see `PUBLISHING.md`. The app id is
@@ -63,6 +68,8 @@ After a deploy, `/api/health` reports `build` (bump `BUILD` in `server.js`) and 
 
 The node suite (run them all before a deploy):
 
+- `node tools/giftscan.js`: the everything gift on a real server (port 8491): coins, every item,
+  every pass as it starts, nothing twice, nothing for a latecomer with the name or anyone else.
 - `node tools/contestscan.js`: the 3-point contest and free throws: the game and the server agree on
   every number; how often each release drops; whole contests at three skill levels.
 - `node tools/rulesscan.js`: PRO MATCH: out of bounds, the shot clock, fouls, free throws, and whole
